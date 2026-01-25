@@ -44,6 +44,29 @@ blog_side_api/
 - `storage.sqlite_path`：SQLite 数据库文件路径（仅 sqlite 时生效）
 - `data.pending_file` / `data.replies_file`（JSON 数据文件路径，仅 json 时使用）
 
+## 🌐 公网访问与域名配置（建议）
+> 目标：博客用户与 bot 均通过公网域名访问。
+
+### 1. 监听公网地址
+在服务器上将 `server.host` 改为 `0.0.0.0`，示例：
+```
+server.host = "0.0.0.0"
+```
+这样服务会监听所有网卡地址，才能被公网访问。
+
+### 2. 绑定域名与 HTTPS（推荐）
+- 购买域名并解析 A 记录到服务器公网 IP（如 `api.yourblog.com`）
+- 推荐使用 Nginx 反向代理 + HTTPS（免费证书可用 Let’s Encrypt）
+- bot 端配置使用 `https://api.yourblog.com`
+
+### 3. 安全建议（务必开启）
+- **设置强 `auth.api_key`**，并与 bot 端一致
+- **不要把管理前端暴露给所有人**：
+  - 可以只让 `/api/` 暴露公网，`/admin` 仅内网或加二次验证
+  - 或用 Nginx 对 `/admin` 加 HTTP Basic 认证
+- **限制来源**：只允许 bot 服务器 IP 访问 `/api/`（Nginx 白名单）
+- **日志监控**：观察异常访问和频率
+
 ### 服务器部署说明（含虚拟环境，新手可直接照做）
 1. 上传 `blog_side_api/` 全目录到服务器（建议放在 `/opt/blog_side_api`）
 2. 进入目录：
@@ -70,6 +93,7 @@ blog_side_api/
 7. 修改配置：
    - 编辑 [`blog_side_api/config.toml`](blog_side_api/config.toml:1)
    - 设置 `server.host`、`server.port`、`auth.api_key`
+   - 若要公网访问：`server.host = "0.0.0.0"`
    - 选择存储方式：
      - JSON：`storage.storage_type = "json"`
      - SQLite：`storage.storage_type = "sqlite"` 且设置 `storage.sqlite_path`
@@ -81,6 +105,8 @@ blog_side_api/
    - 浏览器访问：`http://<服务器IP>:<端口>/admin`
 
 > 停止服务：按 `Ctrl + C`。下次启动前记得再次执行 `source .venv/bin/activate`。
+>
+> 若使用域名访问，请在 bot 端将 `blog_api_url` 配置为 `https://你的域名`。
 
 ## 🧪 测试示例
 ### 获取待处理评论
