@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>博客评论管理面板</title>
+    <title>博客管理面板</title>
     <style>
       :root {
         color-scheme: light;
@@ -24,6 +24,11 @@
         background: var(--card);
         border-bottom: 1px solid var(--border);
         padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
       }
       h1 {
         margin: 0;
@@ -45,6 +50,23 @@
         gap: 8px;
         align-items: center;
         flex-wrap: wrap;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .tab {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: #f3f4f6;
+        cursor: pointer;
+      }
+      .tab.active {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
       }
       input[type="text"] {
         padding: 8px 10px;
@@ -72,7 +94,8 @@
         margin-top: 12px;
         font-size: 14px;
       }
-      th, td {
+      th,
+      td {
         border-bottom: 1px solid var(--border);
         text-align: left;
         padding: 8px;
@@ -96,34 +119,40 @@
         background: #eef2ff;
         color: #3730a3;
       }
+      .hidden {
+        display: none;
+      }
     </style>
   </head>
   <body>
     <header>
-      <h1>博客评论管理面板</h1>
+      <h1>博客管理面板</h1>
+      <div class="tabs">
+        <button class="tab active" data-tab="posts">博客管理</button>
+        <button class="tab" data-tab="pending">待处理评论</button>
+        <button class="tab" data-tab="replies">回复记录</button>
+      </div>
     </header>
     <main>
       <section class="panel">
         <div class="toolbar">
           <input id="apiKeyInput" type="text" placeholder="API Key（与服务端一致）" />
-          <button id="refreshBtn">刷新待处理评论</button>
-          <button id="loadRepliesBtn" class="secondary">查看回复记录</button>
-          <button id="loadPostsBtn" class="secondary">加载博客列表</button>
+          <button id="refreshBtn">刷新当前列表</button>
           <span id="status" class="muted"></span>
         </div>
       </section>
 
-      <section class="panel">
+      <section id="postsPanel" class="panel">
         <h2>博客管理</h2>
         <div id="postsContainer" class="empty">暂无数据</div>
       </section>
 
-      <section class="panel">
+      <section id="pendingPanel" class="panel hidden">
         <h2>待处理评论</h2>
         <div id="pendingContainer" class="empty">暂无数据</div>
       </section>
 
-      <section class="panel">
+      <section id="repliesPanel" class="panel hidden">
         <h2>回复记录</h2>
         <div id="repliesContainer" class="empty">暂无数据</div>
       </section>
@@ -135,6 +164,13 @@
       const repliesContainer = document.getElementById("repliesContainer");
       const postsContainer = document.getElementById("postsContainer");
       const statusEl = document.getElementById("status");
+      const tabs = document.querySelectorAll(".tab");
+      const panels = {
+        posts: document.getElementById("postsPanel"),
+        pending: document.getElementById("pendingPanel"),
+        replies: document.getElementById("repliesPanel"),
+      };
+      let activeTab = "posts";
 
       function setStatus(text) {
         statusEl.textContent = text;
@@ -143,6 +179,16 @@
       function getHeaders() {
         const apiKey = apiKeyInput.value.trim();
         return apiKey ? { "X-API-KEY": apiKey } : {};
+      }
+
+      function setActiveTab(tabName) {
+        activeTab = tabName;
+        tabs.forEach((tab) => {
+          tab.classList.toggle("active", tab.dataset.tab === tabName);
+        });
+        Object.entries(panels).forEach(([key, panel]) => {
+          panel.classList.toggle("hidden", key !== tabName);
+        });
       }
 
       function renderTable(container, rows, columns) {
@@ -250,13 +296,23 @@
         }
       }
 
-      document.getElementById("refreshBtn").addEventListener("click", loadPending);
-      document.getElementById("loadRepliesBtn").addEventListener("click", loadReplies);
-      document.getElementById("loadPostsBtn").addEventListener("click", loadPosts);
+      async function refreshActive() {
+        if (activeTab === "posts") return loadPosts();
+        if (activeTab === "pending") return loadPending();
+        return loadReplies();
+      }
 
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          setActiveTab(tab.dataset.tab);
+          refreshActive();
+        });
+      });
+
+      document.getElementById("refreshBtn").addEventListener("click", refreshActive);
+
+      setActiveTab("posts");
       loadPosts();
-      loadPending();
-      loadReplies();
     </script>
   </body>
 </html>

@@ -184,7 +184,7 @@ def serve_public_list():
 
 @app.get("/post/{post_id}")
 def serve_public_detail(post_id: int):
-    return FileResponse(web_root / "post.html")
+    return FileResponse(web_root / "public.html")
 
 
 @app.get("/admin")

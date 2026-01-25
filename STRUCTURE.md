@@ -11,9 +11,9 @@ blog_side_api/
 ├── README.md            # 使用说明
 ├── STRUCTURE.md         # 结构说明
 ├── web/
-│   ├── index.html       # 管理前端页面（删除博客）
-│   ├── public.html      # 公开博客列表
-│   └── post.html        # 公开博客详情（评论列表/提交）
+│   ├── index.html       # 管理前端单页（Tab 切换）
+│   ├── public.html      # 公开博客单页（列表 + 详情 + 评论）
+│   └── post.html        # 旧版详情页（当前未被路由使用，保留作参考）
 └── data/
     ├── pending.json     # 待处理评论数据（示例）
     ├── replies.json     # 回复结果存储（示例）
@@ -24,7 +24,7 @@ blog_side_api/
 - `app.py`：API 主入口，提供评论、公开列表与删除接口。
 - `config.toml`：服务配置（带中文注释）。
 - `requirements.txt`：依赖列表。
-- `web/`：公开博客页面、评论入口与管理前端。
+- `web/`：公开博客单页、评论入口与管理前端单页。
 - `data/`：示例数据，模拟评论队列、回复与公开文章。
 
 ## 备注
