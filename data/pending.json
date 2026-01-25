@@ -1,0 +1,11 @@
+[
+  {
+    "id": 123,
+    "post_id": 5,
+    "post_title": "如何使用 MaiBot 构建自动化博客",
+    "post_summary": "今天学习了 MaiBot 的插件开发...",
+    "visitor_name": "Alice",
+    "content": "写得很详细，谢谢分享！",
+    "created_at": "2025-12-22T10:00:00Z"
+  }
+]

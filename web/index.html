@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>博客评论管理面板</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+        --bg: #f7f7fb;
+        --card: #ffffff;
+        --text: #1f2328;
+        --muted: #6b7280;
+        --primary: #2563eb;
+        --border: #e5e7eb;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 24px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+      main {
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+      }
+      .panel {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      input[type="text"] {
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        min-width: 240px;
+      }
+      button {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 6px;
+        background: var(--primary);
+        color: white;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #6b7280;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+        font-size: 14px;
+      }
+      th, td {
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        padding: 8px;
+        vertical-align: top;
+      }
+      th {
+        background: #f3f4f6;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .empty {
+        padding: 12px;
+        color: var(--muted);
+      }
+      .badge {
+        display: inline-block;
+        padding: 2px 8px;
+        font-size: 12px;
+        border-radius: 999px;
+        background: #eef2ff;
+        color: #3730a3;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>博客评论管理面板</h1>
+    </header>
+    <main>
+      <section class="panel">
+        <div class="toolbar">
+          <input id="apiKeyInput" type="text" placeholder="API Key（与服务端一致）" />
+          <button id="refreshBtn">刷新待处理评论</button>
+          <button id="loadRepliesBtn" class="secondary">查看回复记录</button>
+          <span id="status" class="muted"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>待处理评论</h2>
+        <div id="pendingContainer" class="empty">暂无数据</div>
+      </section>
+
+      <section class="panel">
+        <h2>回复记录</h2>
+        <div id="repliesContainer" class="empty">暂无数据</div>
+      </section>
+    </main>
+
+    <script>
+      const apiKeyInput = document.getElementById("apiKeyInput");
+      const pendingContainer = document.getElementById("pendingContainer");
+      const repliesContainer = document.getElementById("repliesContainer");
+      const statusEl = document.getElementById("status");
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function getHeaders() {
+        const apiKey = apiKeyInput.value.trim();
+        return apiKey ? { "X-API-KEY": apiKey } : {};
+      }
+
+      function renderTable(container, rows, columns) {
+        if (!rows || rows.length === 0) {
+          container.innerHTML = "<div class='empty'>暂无数据</div>";
+          return;
+        }
+        const thead = `<thead><tr>${columns.map((c) => `<th>${c.title}</th>`).join("")}</tr></thead>`;
+        const tbody = `<tbody>${rows
+          .map((row) => {
+            return `<tr>${columns
+              .map((c) => `<td>${c.render ? c.render(row) : row[c.key] ?? ""}</td>`)
+              .join("")}</tr>`;
+          })
+          .join("")}</tbody>`;
+        container.innerHTML = `<table>${thead}${tbody}</table>`;
+      }
+
+      async function loadPending() {
+        setStatus("正在加载待处理评论...");
+        try {
+          const resp = await fetch(`/api/v1/comments/pending?since=0`, { headers: getHeaders() });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          renderTable(pendingContainer, data.data || [], [
+            { title: "ID", key: "id" },
+            { title: "文章", key: "post_title" },
+            { title: "访客", key: "visitor_name" },
+            { title: "评论", key: "content" },
+            { title: "时间", key: "created_at" },
+          ]);
+          setStatus("待处理评论加载完成");
+        } catch (err) {
+          pendingContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
+          setStatus("加载失败");
+        }
+      }
+
+      async function loadReplies() {
+        setStatus("正在加载回复记录...");
+        try {
+          const resp = await fetch(`/api/v1/comments/replies`, { headers: getHeaders() });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          renderTable(repliesContainer, data.data || [], [
+            { title: "ID", key: "id" },
+            { title: "父评论", key: "parent_id" },
+            { title: "作者", key: "author", render: (r) => `<span class='badge'>${r.author}</span>` },
+            { title: "内容", key: "content" },
+            { title: "时间", key: "created_at" },
+          ]);
+          setStatus("回复记录加载完成");
+        } catch (err) {
+          repliesContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
+          setStatus("加载失败");
+        }
+      }
+
+      document.getElementById("refreshBtn").addEventListener("click", loadPending);
+      document.getElementById("loadRepliesBtn").addEventListener("click", loadReplies);
+
+      loadPending();
+      loadReplies();
+    </script>
+  </body>
+</html>
