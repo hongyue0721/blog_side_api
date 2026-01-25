@@ -7,13 +7,16 @@
 
 ## ✨ 功能说明
 - `GET /`：公开博客列表页面
-- `GET /post/{id}`：公开博客详情页面
-- `GET /admin`：管理前端（评论列表/回复查看）
+- `GET /post/{id}`：公开博客详情页面（含评论列表/提交）
+- `GET /admin`：管理前端（评论列表/回复查看/删除博客）
 - `GET /api/v1/posts`：公开博客列表数据
 - `GET /api/v1/posts/{id}`：公开博客详情数据
+- `DELETE /api/v1/posts/{id}`：删除博客（管理端使用）
 - `GET /api/v1/comments/pending`：拉取待处理评论
 - `GET /api/v1/comments/replies`：获取回复记录
 - `POST /api/v1/comments`：提交机器人回复
+- `GET /api/v1/comments/public?post_id=...`：公开评论列表
+- `POST /api/v1/comments/public`：公开评论提交
 
 ## 📦 目录结构
 ```
@@ -24,9 +27,9 @@ blog_side_api/
 ├── README.md            # 使用说明
 ├── STRUCTURE.md         # 结构说明
 ├── web/
-│   ├── index.html       # 管理前端
+│   ├── index.html       # 管理前端（删除博客）
 │   ├── public.html      # 公开博客列表
-│   └── post.html        # 公开博客详情
+│   └── post.html        # 公开博客详情（评论列表/提交）
 └── data/
     ├── pending.json     # 待处理评论数据（示例）
     ├── replies.json     # 回复结果存储（示例）

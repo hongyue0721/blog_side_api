@@ -18,6 +18,12 @@ class ReplyPayload(BaseModel):
     content: str
 
 
+class PublicCommentPayload(BaseModel):
+    post_id: int
+    visitor_name: str
+    content: str
+
+
 def load_config() -> Dict[str, Any]:
     config_path = Path(__file__).parent / "config.toml"
     return toml.load(config_path)
@@ -87,6 +93,28 @@ def list_replies_from_sqlite(db_path: Path) -> List[Dict[str, Any]]:
         conn.row_factory = sqlite3.Row
         cursor = conn.execute("SELECT * FROM replies ORDER BY id DESC")
         return [dict(row) for row in cursor.fetchall()]
+
+
+def list_public_comments_from_sqlite(db_path: Path, post_id: int) -> List[Dict[str, Any]]:
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM pending_comments WHERE post_id = ? ORDER BY id DESC", (post_id,))
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def insert_public_comment_to_sqlite(db_path: Path, payload: PublicCommentPayload, post_title: str, post_summary: str) -> Dict[str, Any]:
+    created_at = "2025-12-22T10:05:00Z"
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO pending_comments (post_id, post_title, post_summary, visitor_name, content, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (payload.post_id, post_title, post_summary, payload.visitor_name, payload.content, created_at),
+        )
+        conn.commit()
+        comment_id = cursor.lastrowid
+    return {"id": comment_id, "created_at": created_at}
 
 
 def insert_reply_to_sqlite(db_path: Path, payload: ReplyPayload) -> Dict[str, Any]:
@@ -172,6 +200,20 @@ def list_posts():
     return {"code": 0, "message": "success", "data": posts}
 
 
+@app.delete("/api/v1/posts/{post_id}")
+def delete_post(post_id: int, x_api_key: str | None = Header(default=None)):
+    require_api_key(x_api_key)
+    if storage_type == "sqlite":
+        raise HTTPException(status_code=501, detail="sqlite not implemented")
+
+    posts = read_json(posts_file)
+    remaining = [item for item in posts if int(item.get("id", 0)) != post_id]
+    if len(remaining) == len(posts):
+        return {"code": 404, "message": "not found", "data": None}
+    write_json(posts_file, remaining)
+    return {"code": 0, "message": "success", "data": {"id": post_id}}
+
+
 @app.get("/api/v1/posts/{post_id}")
 def get_post(post_id: int):
     if storage_type == "sqlite":
@@ -181,6 +223,47 @@ def get_post(post_id: int):
         if int(item.get("id", 0)) == post_id:
             return {"code": 0, "message": "success", "data": item}
     return {"code": 404, "message": "not found", "data": None}
+
+
+@app.get("/api/v1/comments/public")
+def list_public_comments(post_id: int):
+    if storage_type == "sqlite":
+        data = list_public_comments_from_sqlite(sqlite_path, post_id)
+        return {"code": 0, "message": "success", "data": data}
+
+    pending = read_json(pending_file)
+    data = [item for item in pending if int(item.get("post_id", 0)) == post_id]
+    return {"code": 0, "message": "success", "data": data}
+
+
+@app.post("/api/v1/comments/public")
+def submit_public_comment(payload: PublicCommentPayload):
+    if storage_type == "sqlite":
+        return {"code": 0, "message": "success", "data": insert_public_comment_to_sqlite(sqlite_path, payload, "", "")}
+
+    posts = read_json(posts_file)
+    post_title = ""
+    post_summary = ""
+    for item in posts:
+        if int(item.get("id", 0)) == payload.post_id:
+            post_title = str(item.get("title", ""))
+            post_summary = str(item.get("summary", ""))
+            break
+
+    pending = read_json(pending_file)
+    next_id = (max([c.get("id", 0) for c in pending]) + 1) if pending else 1
+    comment_record = {
+        "id": next_id,
+        "post_id": payload.post_id,
+        "post_title": post_title,
+        "post_summary": post_summary,
+        "visitor_name": payload.visitor_name,
+        "content": payload.content,
+        "created_at": "2025-12-22T10:05:00Z",
+    }
+    pending.append(comment_record)
+    write_json(pending_file, pending)
+    return {"code": 0, "message": "success", "data": {"id": next_id, "created_at": comment_record["created_at"]}}
 
 
 @app.get("/api/v1/comments/pending")

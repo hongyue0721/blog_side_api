@@ -63,6 +63,9 @@
       button.secondary {
         background: #6b7280;
       }
+      button.danger {
+        background: #dc2626;
+      }
       table {
         width: 100%;
         border-collapse: collapse;
@@ -105,8 +108,14 @@
           <input id="apiKeyInput" type="text" placeholder="API Key（与服务端一致）" />
           <button id="refreshBtn">刷新待处理评论</button>
           <button id="loadRepliesBtn" class="secondary">查看回复记录</button>
+          <button id="loadPostsBtn" class="secondary">加载博客列表</button>
           <span id="status" class="muted"></span>
         </div>
+      </section>
+
+      <section class="panel">
+        <h2>博客管理</h2>
+        <div id="postsContainer" class="empty">暂无数据</div>
       </section>
 
       <section class="panel">
@@ -124,6 +133,7 @@
       const apiKeyInput = document.getElementById("apiKeyInput");
       const pendingContainer = document.getElementById("pendingContainer");
       const repliesContainer = document.getElementById("repliesContainer");
+      const postsContainer = document.getElementById("postsContainer");
       const statusEl = document.getElementById("status");
 
       function setStatus(text) {
@@ -171,6 +181,55 @@
         }
       }
 
+      async function loadPosts() {
+        setStatus("正在加载博客列表...");
+        try {
+          const resp = await fetch(`/api/v1/posts`, { headers: getHeaders() });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          renderTable(postsContainer, data.data || [], [
+            { title: "ID", key: "id" },
+            { title: "标题", key: "title" },
+            { title: "作者", key: "author" },
+            { title: "时间", key: "created_at" },
+            {
+              title: "操作",
+              render: (row) => `<button class='danger' data-id='${row.id}'>删除</button>`,
+            },
+          ]);
+          bindDeleteButtons();
+          setStatus("博客列表加载完成");
+        } catch (err) {
+          postsContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
+          setStatus("加载失败");
+        }
+      }
+
+      async function deletePost(postId) {
+        if (!postId) return;
+        if (!confirm(`确定删除文章 ID=${postId} 吗？`)) return;
+        setStatus("正在删除文章...");
+        try {
+          const resp = await fetch(`/api/v1/posts/${postId}`, {
+            method: "DELETE",
+            headers: getHeaders(),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message || "删除失败");
+          await loadPosts();
+          setStatus("删除完成");
+        } catch (err) {
+          setStatus(`删除失败：${err.message}`);
+        }
+      }
+
+      function bindDeleteButtons() {
+        postsContainer.querySelectorAll("button.danger").forEach((btn) => {
+          btn.addEventListener("click", () => deletePost(btn.dataset.id));
+        });
+      }
+
       async function loadReplies() {
         setStatus("正在加载回复记录...");
         try {
@@ -193,7 +252,9 @@
 
       document.getElementById("refreshBtn").addEventListener("click", loadPending);
       document.getElementById("loadRepliesBtn").addEventListener("click", loadReplies);
+      document.getElementById("loadPostsBtn").addEventListener("click", loadPosts);
 
+      loadPosts();
       loadPending();
       loadReplies();
     </script>
