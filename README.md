@@ -40,7 +40,9 @@ blog_side_api/
 请编辑 `config.toml`，字段均带中文注释。关键字段：
 - `server.host` / `server.port`
 - `auth.api_key`（与 bot 端一致）
-- `data.pending_file` / `data.replies_file`（JSON 数据文件路径）
+- `storage.storage_type`：`json` 或 `sqlite`
+- `storage.sqlite_path`：SQLite 数据库文件路径（仅 sqlite 时生效）
+- `data.pending_file` / `data.replies_file`（JSON 数据文件路径，仅 json 时使用）
 
 ### 服务器部署说明（含虚拟环境，新手可直接照做）
 1. 上传 `blog_side_api/` 全目录到服务器（建议放在 `/opt/blog_side_api`）
@@ -68,6 +70,9 @@ blog_side_api/
 7. 修改配置：
    - 编辑 [`blog_side_api/config.toml`](blog_side_api/config.toml:1)
    - 设置 `server.host`、`server.port`、`auth.api_key`
+   - 选择存储方式：
+     - JSON：`storage.storage_type = "json"`
+     - SQLite：`storage.storage_type = "sqlite"` 且设置 `storage.sqlite_path`
 8. 启动服务：
    ```bash
    python app.py

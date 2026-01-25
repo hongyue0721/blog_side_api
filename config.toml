@@ -13,6 +13,12 @@ debug = true
 # API 鉴权密钥（需与 bot 端一致）
 api_key = "your-blog-api-key"
 
+[storage]
+# 存储类型：json 或 sqlite
+storage_type = "json"
+# SQLite 数据库文件路径（仅在 storage_type=sqlite 时生效）
+sqlite_path = "data/blog_api.db"
+
 [data]
 # 待处理评论数据文件路径（JSON）
 pending_file = "data/pending.json"
