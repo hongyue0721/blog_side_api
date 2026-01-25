@@ -24,3 +24,5 @@ sqlite_path = "data/blog_api.db"
 pending_file = "data/pending.json"
 # 回复结果存储文件路径（JSON）
 replies_file = "data/replies.json"
+# 公开博客文章数据（JSON）
+posts_file = "data/posts.json"

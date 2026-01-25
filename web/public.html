@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>公开博客 - 列表</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+        color-scheme: light;
+        --bg: #f7f7fb;
+        --card: #ffffff;
+        --text: #1f2328;
+        --muted: #6b7280;
+        --primary: #2563eb;
+        --border: #e5e7eb;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 24px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+      main {
+        padding: 24px;
+        display: grid;
+        gap: 16px;
+      }
+      .post {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      a {
+        color: var(--primary);
+        text-decoration: none;
+      }
+      .empty {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>公开博客</h1>
+    </header>
+    <main>
+      <div id="list" class="empty">加载中...</div>
+    </main>
+
+    <script>
+      async function loadPosts() {
+        const listEl = document.getElementById("list");
+        try {
+          const resp = await fetch("/api/v1/posts");
+          const data = await resp.json();
+          const posts = data.data || [];
+          if (!posts.length) {
+            listEl.textContent = "暂无文章";
+            return;
+          }
+          listEl.innerHTML = posts
+            .map((post) => {
+              return `
+              <article class="post">
+                <h2><a href="/post/${post.id}">${post.title}</a></h2>
+                <div class="meta">作者：${post.author || "未知"} ｜ 时间：${post.created_at || ""}</div>
+                <p>${post.summary || ""}</p>
+                <a href="/post/${post.id}">查看全文 →</a>
+              </article>
+            `;
+            })
+            .join("");
+        } catch (err) {
+          listEl.textContent = "加载失败";
+        }
+      }
+
+      loadPosts();
+    </script>
+  </body>
+</html>

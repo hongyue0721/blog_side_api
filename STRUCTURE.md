@@ -11,17 +11,21 @@ blog_side_api/
 ├── README.md            # 使用说明
 ├── STRUCTURE.md         # 结构说明
 ├── web/
-│   └── index.html       # 管理前端页面
+│   ├── index.html       # 管理前端页面
+│   ├── public.html      # 公开博客列表
+│   └── post.html        # 公开博客详情
 └── data/
     ├── pending.json     # 待处理评论数据（示例）
-    └── replies.json     # 回复结果存储（示例）
+    ├── replies.json     # 回复结果存储（示例）
+    └── posts.json       # 公开博客示例数据
 ```
 
 ## 文件职责
 - `app.py`：API 主入口，提供 pending 与 reply 接口。
 - `config.toml`：服务配置（带中文注释）。
 - `requirements.txt`：依赖列表。
-- `data/`：示例数据，模拟评论队列与回复存储。
+- `web/`：公开博客页面与管理前端。
+- `data/`：示例数据，模拟评论队列、回复与公开文章。
 
 ## 备注
 - 该样板面向教学与对接验证，真实部署需替换为数据库与权限方案。

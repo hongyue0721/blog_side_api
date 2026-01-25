@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>公开博客 - 详情</title>
+    <style>
+      :root {
+        font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+        color-scheme: light;
+        --bg: #f7f7fb;
+        --card: #ffffff;
+        --text: #1f2328;
+        --muted: #6b7280;
+        --primary: #2563eb;
+        --border: #e5e7eb;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        background: var(--card);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 24px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+      main {
+        padding: 24px;
+      }
+      article {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 8px 0 16px;
+      }
+      a {
+        color: var(--primary);
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>公开博客 - 详情</h1>
+    </header>
+    <main>
+      <article>
+        <div><a href="/">← 返回列表</a></div>
+        <h2 id="title">加载中...</h2>
+        <div class="meta" id="meta"></div>
+        <div id="content"></div>
+      </article>
+    </main>
+
+    <script>
+      function getPostId() {
+        const parts = window.location.pathname.split("/");
+        return parts[parts.length - 1];
+      }
+
+      async function loadPost() {
+        const postId = getPostId();
+        const resp = await fetch(`/api/v1/posts/${postId}`);
+        const data = await resp.json();
+        const post = data.data;
+        if (!post) {
+          document.getElementById("title").textContent = "未找到文章";
+          return;
+        }
+        document.getElementById("title").textContent = post.title || "";
+        document.getElementById("meta").textContent = `作者：${post.author || "未知"} ｜ 时间：${post.created_at || ""}`;
+        document.getElementById("content").textContent = post.content || "";
+      }
+
+      loadPost();
+    </script>
+  </body>
+</html>

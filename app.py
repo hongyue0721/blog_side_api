@@ -128,6 +128,7 @@ sqlite_path = Path(config.get("storage", {}).get("sqlite_path", "data/blog_api.d
 
 pending_file = Path(config.get("data", {}).get("pending_file", "data/pending.json"))
 replies_file = Path(config.get("data", {}).get("replies_file", "data/replies.json"))
+posts_file = Path(config.get("data", {}).get("posts_file", "data/posts.json"))
 
 web_root = Path(__file__).parent / "web"
 
@@ -136,6 +137,7 @@ if storage_type == "sqlite":
 else:
     ensure_data_file(pending_file, [])
     ensure_data_file(replies_file, [])
+    ensure_data_file(posts_file, [])
 
 app = FastAPI(title="Blog Comment API Sample", version="0.1.0")
 
@@ -148,9 +150,37 @@ def require_api_key(x_api_key: str | None) -> None:
 
 
 @app.get("/")
+def serve_public_list():
+    return FileResponse(web_root / "public.html")
+
+
+@app.get("/post/{post_id}")
+def serve_public_detail(post_id: int):
+    return FileResponse(web_root / "post.html")
+
+
 @app.get("/admin")
 def serve_admin_page():
     return FileResponse(web_root / "index.html")
+
+
+@app.get("/api/v1/posts")
+def list_posts():
+    if storage_type == "sqlite":
+        return {"code": 0, "message": "success", "data": []}
+    posts = read_json(posts_file)
+    return {"code": 0, "message": "success", "data": posts}
+
+
+@app.get("/api/v1/posts/{post_id}")
+def get_post(post_id: int):
+    if storage_type == "sqlite":
+        return {"code": 0, "message": "success", "data": None}
+    posts = read_json(posts_file)
+    for item in posts:
+        if int(item.get("id", 0)) == post_id:
+            return {"code": 0, "message": "success", "data": item}
+    return {"code": 404, "message": "not found", "data": None}
 
 
 @app.get("/api/v1/comments/pending")

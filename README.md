@@ -6,7 +6,11 @@
 - 与 bot 端插件的 API 对接示例
 
 ## ✨ 功能说明
-- `GET /` 或 `/admin`：管理前端（评论列表/回复查看）
+- `GET /`：公开博客列表页面
+- `GET /post/{id}`：公开博客详情页面
+- `GET /admin`：管理前端（评论列表/回复查看）
+- `GET /api/v1/posts`：公开博客列表数据
+- `GET /api/v1/posts/{id}`：公开博客详情数据
 - `GET /api/v1/comments/pending`：拉取待处理评论
 - `GET /api/v1/comments/replies`：获取回复记录
 - `POST /api/v1/comments`：提交机器人回复
@@ -19,9 +23,14 @@ blog_side_api/
 ├── requirements.txt     # 依赖
 ├── README.md            # 使用说明
 ├── STRUCTURE.md         # 结构说明
+├── web/
+│   ├── index.html       # 管理前端
+│   ├── public.html      # 公开博客列表
+│   └── post.html        # 公开博客详情
 └── data/
     ├── pending.json     # 待处理评论数据（示例）
-    └── replies.json     # 回复结果存储（示例）
+    ├── replies.json     # 回复结果存储（示例）
+    └── posts.json       # 公开博客示例数据
 ```
 
 ## 🚀 快速启动
@@ -35,6 +44,7 @@ blog_side_api/
    ```
 3. 默认监听：`http://127.0.0.1:8000`
 4. 打开管理前端：`http://127.0.0.1:8000/admin`
+5. 打开公开博客：`http://127.0.0.1:8000/`
 
 ## 🔧 配置说明
 请编辑 `config.toml`，字段均带中文注释。关键字段：
@@ -43,6 +53,7 @@ blog_side_api/
 - `storage.storage_type`：`json` 或 `sqlite`
 - `storage.sqlite_path`：SQLite 数据库文件路径（仅 sqlite 时生效）
 - `data.pending_file` / `data.replies_file`（JSON 数据文件路径，仅 json 时使用）
+- `data.posts_file`（公开博客文章数据，仅 json 时使用）
 
 ## 🌐 公网访问与域名配置（建议）
 > 目标：博客用户与 bot 均通过公网域名访问。
@@ -103,10 +114,14 @@ server.host = "0.0.0.0"
    ```
 9. 打开管理前端：
    - 浏览器访问：`http://<服务器IP>:<端口>/admin`
+10. 打开公开博客：
+   - 浏览器访问：`http://<服务器IP>:<端口>/`
 
 > 停止服务：按 `Ctrl + C`。下次启动前记得再次执行 `source .venv/bin/activate`。
 >
 > 若使用域名访问，请在 bot 端将 `blog_api_url` 配置为 `https://你的域名`。
+>
+> 公开博客入口：`/`（列表页）与 `/post/{id}`（详情页）
 
 ## 🧪 测试示例
 ### 获取待处理评论
