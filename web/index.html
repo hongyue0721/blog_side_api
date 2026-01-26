@@ -487,14 +487,27 @@
       function bindPostActions() {
         postsContainer.querySelectorAll("button").forEach((btn) => {
           const action = btn.dataset.action;
+          // Remove existing listeners to prevent duplicates if re-bound (though innerHTML replacement handles this usually)
+          // Using cloneNode to strip listeners is a heavy-handed approach, but here we rely on fresh DOM from renderTable.
+          // Just binding directly is fine as long as we don't double-bind on the same element.
+          
           if (action === "delete") {
-            btn.addEventListener("click", () => deletePost(btn.dataset.id));
+            btn.onclick = (e) => {
+              e.stopPropagation(); // Prevent row click
+              deletePost(btn.dataset.id);
+            };
           }
           if (action === "edit") {
-            btn.addEventListener("click", () => editPost(btn.dataset.id));
+            btn.onclick = (e) => {
+              e.stopPropagation(); // Prevent row click
+              editPost(btn.dataset.id);
+            };
           }
           if (action === "view") {
-            btn.addEventListener("click", () => viewPost(btn.dataset.id));
+            btn.onclick = (e) => {
+              e.stopPropagation(); // Prevent row click
+              viewPost(btn.dataset.id);
+            };
           }
         });
       }
