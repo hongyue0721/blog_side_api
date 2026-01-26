@@ -24,3 +24,5 @@ sqlite_path = "data/blog_api.db"
 comments_file = "data/comments.json"
 # 公开博客文章数据（JSON）
 posts_file = "data/posts.json"
+# 本地图片上传目录（管理端上传图片后保存）
+images_dir = "data/uploads"

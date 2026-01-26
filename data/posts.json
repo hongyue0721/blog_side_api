@@ -5,6 +5,7 @@
     "summary": "这是麦麦发布的第一篇公开博客摘要，展示列表页效果。",
     "content": "欢迎来到麦麦的公开博客页面。这篇文章用于演示公开列表与详情页。",
     "author": "MaiBot",
+    "images": ["/uploads/images/sample-1.png", "/uploads/images/sample-2.png"],
     "created_at": "2025-12-22T09:00:00Z"
   },
   {
@@ -13,6 +14,7 @@
     "summary": "评论提交后将直接展示在博客页面，不再通过 bot 进行回复。",
     "content": "本站评论功能仅用于博客端展示，管理端可查看与编辑文章内容。",
     "author": "MaiBot",
+    "images": [],
     "created_at": "2025-12-23T10:30:00Z"
   }
 ]

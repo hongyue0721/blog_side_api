@@ -122,6 +122,48 @@
       .hidden {
         display: none;
       }
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+      .image-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .image-grid img {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
+      .editor {
+        margin-top: 16px;
+        border-top: 1px dashed var(--border);
+        padding-top: 16px;
+      }
+      .form-row {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      .form-row label {
+        font-size: 14px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-family: inherit;
+        resize: vertical;
+      }
     </style>
   </head>
   <body>
@@ -149,6 +191,39 @@
       <section id="postDetailPanel" class="panel hidden">
         <h2>文章详情</h2>
         <div id="postDetail" class="empty">请选择文章查看</div>
+        <div id="postEditor" class="editor hidden">
+          <h3>选择性修改</h3>
+          <div class="form-row">
+            <label><input class="edit-toggle" data-field="title" type="checkbox" /> 标题</label>
+            <input id="editTitle" type="text" />
+          </div>
+          <div class="form-row">
+            <label><input class="edit-toggle" data-field="summary" type="checkbox" /> 摘要</label>
+            <textarea id="editSummary" rows="3"></textarea>
+          </div>
+          <div class="form-row">
+            <label><input class="edit-toggle" data-field="content" type="checkbox" /> 正文</label>
+            <textarea id="editContent" rows="8"></textarea>
+          </div>
+          <div class="form-row">
+            <label><input class="edit-toggle" data-field="author" type="checkbox" /> 作者</label>
+            <input id="editAuthor" type="text" />
+          </div>
+          <div class="form-row">
+            <label><input class="edit-toggle" data-field="images" type="checkbox" /> 图片（每行一个 URL）</label>
+            <textarea id="editImages" rows="4" placeholder="/uploads/images/xxx.png"></textarea>
+          </div>
+          <div class="form-row">
+            <label>上传图片（支持多选）</label>
+            <input id="imageUploadInput" type="file" accept="image/*" multiple />
+            <button id="uploadImageBtn" type="button">上传图片</button>
+            <div id="imageUploadStatus" class="muted"></div>
+          </div>
+          <div class="form-row">
+            <button id="savePostBtn" type="button">保存所选字段</button>
+            <button id="clearSelectBtn" type="button" class="secondary">取消选择</button>
+          </div>
+        </div>
       </section>
 
       <section id="commentsPanel" class="panel hidden">
@@ -162,13 +237,26 @@
       const commentsContainer = document.getElementById("commentsContainer");
       const postsContainer = document.getElementById("postsContainer");
       const postDetail = document.getElementById("postDetail");
+      const postEditor = document.getElementById("postEditor");
       const statusEl = document.getElementById("status");
       const tabs = document.querySelectorAll(".tab");
       const panels = {
         posts: document.getElementById("postsPanel"),
         comments: document.getElementById("commentsPanel"),
       };
+      const editTitleInput = document.getElementById("editTitle");
+      const editSummaryInput = document.getElementById("editSummary");
+      const editContentInput = document.getElementById("editContent");
+      const editAuthorInput = document.getElementById("editAuthor");
+      const editImagesInput = document.getElementById("editImages");
+      const imageUploadInput = document.getElementById("imageUploadInput");
+      const imageUploadStatus = document.getElementById("imageUploadStatus");
+      const savePostBtn = document.getElementById("savePostBtn");
+      const clearSelectBtn = document.getElementById("clearSelectBtn");
+      const uploadImageBtn = document.getElementById("uploadImageBtn");
       let activeTab = "posts";
+      let currentPostId = null;
+      let currentPost = null;
 
       function setStatus(text) {
         statusEl.textContent = text;
@@ -207,6 +295,38 @@
           })
           .join("")}</tbody>`;
         container.innerHTML = `<table>${thead}${tbody}</table>`;
+      }
+
+      function parseImages(value) {
+        if (!value) return [];
+        return value
+          .split("\n")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+      }
+
+      function renderImages(images) {
+        if (!images || images.length === 0) return "";
+        const items = images
+          .map((url) => `<div><img src="${url}" alt="image" /></div>`)
+          .join("");
+        return `<div class="image-grid">${items}</div>`;
+      }
+
+      function fillEditor(post) {
+        if (!post) return;
+        editTitleInput.value = post.title || "";
+        editSummaryInput.value = post.summary || "";
+        editContentInput.value = post.content || "";
+        editAuthorInput.value = post.author || "";
+        editImagesInput.value = (post.images || []).join("\n");
+        postEditor.classList.remove("hidden");
+      }
+
+      function clearEditSelection() {
+        document.querySelectorAll(".edit-toggle").forEach((checkbox) => {
+          checkbox.checked = false;
+        });
       }
 
       async function loadComments() {
@@ -293,52 +413,28 @@
           const data = await resp.json();
           if (!data.data) throw new Error("未找到文章");
           const post = data.data;
+          currentPostId = post.id;
+          currentPost = post;
           postDetail.innerHTML = `
             <div class="meta">ID：${post.id} ｜ 作者：${post.author || ""} ｜ 时间：${post.created_at || ""}</div>
             <h3>${post.title || ""}</h3>
             <p>${post.summary || ""}</p>
             <pre style="white-space: pre-wrap;">${post.content || ""}</pre>
+            ${renderImages(post.images || [])}
           `;
+          fillEditor(post);
+          clearEditSelection();
           setStatus("文章详情加载完成");
         } catch (err) {
           postDetail.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
+          postEditor.classList.add("hidden");
           setStatus("加载失败");
         }
       }
 
       async function editPost(postId) {
-        const title = prompt("请输入新标题（留空则不修改）");
-        const summary = prompt("请输入新摘要（留空则不修改）");
-        const content = prompt("请输入新正文（留空则不修改）");
-        const author = prompt("请输入作者（留空则不修改）");
-        if (title === null && summary === null && content === null && author === null) return;
-
-        const payload = {};
-        if (title) payload.title = title;
-        if (summary) payload.summary = summary;
-        if (content) payload.content = content;
-        if (author) payload.author = author;
-        if (Object.keys(payload).length === 0) {
-          setStatus("未填写任何修改内容");
-          return;
-        }
-
-        setStatus("正在保存修改...");
-        try {
-          const resp = await fetch(`/api/v1/posts/${postId}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", ...getHeaders() },
-            body: JSON.stringify(payload),
-          });
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-          const data = await resp.json();
-          if (data.code !== 0) throw new Error(data.message || "保存失败");
-          await loadPosts();
-          await viewPost(postId);
-          setStatus("保存完成");
-        } catch (err) {
-          setStatus(`保存失败：${err.message}`);
-        }
+        await viewPost(postId);
+        postEditor.scrollIntoView({ behavior: "smooth", block: "start" });
       }
 
       function bindPostActions() {
@@ -354,6 +450,76 @@
             btn.addEventListener("click", () => viewPost(btn.dataset.id));
           }
         });
+      }
+
+      async function saveSelectedFields() {
+        if (!currentPostId) {
+          setStatus("请先选择文章");
+          return;
+        }
+        const payload = {};
+        document.querySelectorAll(".edit-toggle").forEach((checkbox) => {
+          if (!checkbox.checked) return;
+          const field = checkbox.dataset.field;
+          if (field === "title") payload.title = editTitleInput.value.trim();
+          if (field === "summary") payload.summary = editSummaryInput.value;
+          if (field === "content") payload.content = editContentInput.value;
+          if (field === "author") payload.author = editAuthorInput.value.trim();
+          if (field === "images") payload.images = parseImages(editImagesInput.value);
+        });
+
+        if (Object.keys(payload).length === 0) {
+          setStatus("未勾选任何要修改的字段");
+          return;
+        }
+
+        setStatus("正在保存修改...");
+        try {
+          const resp = await fetch(`/api/v1/posts/${currentPostId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...getHeaders() },
+            body: JSON.stringify(payload),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message || "保存失败");
+          await loadPosts();
+          await viewPost(currentPostId);
+          setStatus("保存完成");
+        } catch (err) {
+          setStatus(`保存失败：${err.message}`);
+        }
+      }
+
+      async function uploadImages() {
+        if (!imageUploadInput.files || imageUploadInput.files.length === 0) {
+          imageUploadStatus.textContent = "请先选择图片";
+          return;
+        }
+        imageUploadStatus.textContent = "正在上传...";
+        const urls = [];
+        for (const file of imageUploadInput.files) {
+          const formData = new FormData();
+          formData.append("file", file);
+          const resp = await fetch("/api/v1/uploads/image", {
+            method: "POST",
+            headers: getHeaders(),
+            body: formData,
+          });
+          if (!resp.ok) {
+            imageUploadStatus.textContent = `上传失败：HTTP ${resp.status}`;
+            return;
+          }
+          const data = await resp.json();
+          if (data.code !== 0) {
+            imageUploadStatus.textContent = `上传失败：${data.message || "error"}`;
+            return;
+          }
+          urls.push(data.data.url);
+        }
+        const existing = parseImages(editImagesInput.value);
+        editImagesInput.value = [...existing, ...urls].join("\n");
+        imageUploadStatus.textContent = "上传完成";
       }
 
       async function updateComment(commentId) {
@@ -434,6 +600,9 @@
       });
 
       document.getElementById("refreshBtn").addEventListener("click", refreshActive);
+      savePostBtn.addEventListener("click", saveSelectedFields);
+      clearSelectBtn.addEventListener("click", clearEditSelection);
+      uploadImageBtn.addEventListener("click", uploadImages);
 
       setActiveTab("posts");
       refreshActive();

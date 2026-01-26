@@ -9,6 +9,8 @@
 - `GET /`：公开博客单页（列表 + 详情 + 评论）
 - `GET /post/{id}`：公开博客单页深链（同一页，定位到指定文章）
 - `GET /admin`：管理前端单页（Tab 切换：评论管理/文章详情/编辑博客/删除博客）
+- `POST /api/v1/posts`：发布博客（支持图片字段）
+- `POST /api/v1/uploads/image`：图片上传（管理端使用）
 - `GET /api/v1/posts`：公开博客列表数据
 - `GET /api/v1/posts/{id}`：公开博客详情数据
 - `PUT /api/v1/posts/{id}`：编辑博客（管理端使用）
@@ -31,9 +33,11 @@ blog_side_api/
 │   ├── index.html       # 管理前端单页（Tab 切换）
 │   ├── public.html      # 公开博客单页（列表 + 详情 + 评论）
 │   └── post.html        # 旧版详情页（当前未被路由使用，保留作参考）
-└── data/
-    ├── comments.json    # 评论数据（示例）
-    └── posts.json       # 公开博客示例数据
+├── data/
+│   ├── comments.json    # 评论数据（示例）
+│   └── posts.json       # 公开博客示例数据（含图片字段）
+└── uploads/
+    └── images/          # 管理端上传图片保存位置
 ```
 
 ## 🚀 快速启动
@@ -80,8 +84,9 @@ blog_side_api/
    ```
 5. 修改配置：
    - 编辑 [`blog_side_api/config.toml`](blog_side_api/config.toml:1)
-   - 设置 `server.host`、`server.port`、`auth.api_key`
+   - 设置 `server.host`、`server.port`、`admin.password`
    - 选择存储方式：`storage.storage_type = "json" | "sqlite"`
+   - 可选：设置 `data.images_dir` 作为图片上传目录
 6. 启动服务：
    ```bash
    python app.py
@@ -100,6 +105,7 @@ blog_side_api/
 - `storage.sqlite_path`：SQLite 数据库文件路径（仅 sqlite 时生效）
 - `data.comments_file`（评论数据文件路径，仅 json 时使用）
 - `data.posts_file`（公开博客文章数据，仅 json 时使用）
+- `data.images_dir`（图片上传存储目录，仅用于图片上传）
 - 时间格式：使用服务器本地时间 `ISO8601`（如 `2026-01-26T11:05:00+08:00`）
 
 ## 🌐 公网访问与域名配置（建议）
@@ -202,6 +208,21 @@ curl -X PUT "http://127.0.0.1:8000/api/v1/posts/1" \
   -H "X-ADMIN-PASSWORD: your-admin-password" \
   -H "Content-Type: application/json" \
   -d "{\"title\":\"新标题\",\"summary\":\"新摘要\"}"
+```
+
+### 管理端发布博客（含图片）
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/posts" \
+  -H "X-ADMIN-PASSWORD: your-admin-password" \
+  -H "Content-Type: application/json" \
+  -d "{\"title\":\"新文章\",\"summary\":\"摘要\",\"content\":\"正文\",\"author\":\"MaiBot\",\"images\":[\"/uploads/images/demo.jpg\"]}"
+```
+
+### 管理端上传图片
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/uploads/image" \
+  -H "X-ADMIN-PASSWORD: your-admin-password" \
+  -F "file=@/path/to/image.jpg"
 ```
 
 ## ⚠️ 注意

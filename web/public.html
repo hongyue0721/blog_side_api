@@ -111,6 +111,17 @@
       .muted {
         color: var(--muted);
       }
+      .image-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .image-grid img {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+      }
     </style>
   </head>
   <body>
@@ -163,6 +174,14 @@
 
       function setStatus(text) {
         commentStatus.textContent = text;
+      }
+
+      function renderImages(images) {
+        if (!images || images.length === 0) return "";
+        const items = images
+          .map((url) => `<div><img src="${url}" alt="image" /></div>`)
+          .join("");
+        return `<div class="image-grid">${items}</div>`;
       }
 
       function getPostIdFromUrl() {
@@ -239,7 +258,10 @@
         }
         document.getElementById("title").textContent = post.title || "";
         document.getElementById("meta").textContent = `作者：${post.author || "未知"} ｜ 时间：${post.created_at || ""}`;
-        document.getElementById("content").textContent = post.content || "";
+        document.getElementById("content").innerHTML = `
+          <pre style="white-space: pre-wrap;">${post.content || ""}</pre>
+          ${renderImages(post.images || [])}
+        `;
         return true;
       }
 
