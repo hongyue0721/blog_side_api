@@ -284,6 +284,7 @@
       const settingAvatar = document.getElementById("settingAvatar");
       const settingBg = document.getElementById("settingBg");
       const settingColor = document.getElementById("settingColor");
+      const tabs = document.querySelectorAll(".tab");
       const panels = {
         posts: document.getElementById("postsPanel"),
         comments: document.getElementById("commentsPanel"),
@@ -715,13 +716,20 @@
       }
 
       async function refreshActive() {
+        console.log("refreshActive called, tab:", activeTab);
         if (!isAuthed()) {
           setStatus("请先输入管理端密码");
+          alert("请先输入管理端密码");
           return;
         }
-        if (activeTab === "posts") return loadPosts();
-        if (activeTab === "comments") return loadComments();
-        if (activeTab === "settings") return loadSettings();
+        try {
+          if (activeTab === "posts") await loadPosts();
+          else if (activeTab === "comments") await loadComments();
+          else if (activeTab === "settings") await loadSettings();
+        } catch (e) {
+          console.error(e);
+          alert("操作失败: " + e.message);
+        }
       }
 
       tabs.forEach((tab) => {
@@ -731,7 +739,10 @@
         });
       });
 
-      document.getElementById("refreshBtn").addEventListener("click", refreshActive);
+      document.getElementById("refreshBtn").addEventListener("click", () => {
+        console.log("Refresh clicked");
+        refreshActive();
+      });
       savePostBtn.addEventListener("click", saveSelectedFields);
       clearSelectBtn.addEventListener("click", clearEditSelection);
       uploadImageBtn.addEventListener("click", uploadImages);

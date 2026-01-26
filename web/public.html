@@ -37,7 +37,7 @@
         transition: color 0.3s, background-color 0.3s;
       }
       .container {
-        max-width: 1000px;
+        max-width: 1200px;
         margin: 0 auto;
         padding: 24px;
         display: grid;
@@ -154,7 +154,7 @@
       /* Detail View */
       .detail-grid {
         display: grid;
-        grid-template-columns: 1fr 320px;
+        grid-template-columns: 1fr;
         gap: 24px;
         align-items: start;
       }
@@ -162,9 +162,6 @@
         padding-left: 20px; /* Space for date dot */
       }
       @media (max-width: 768px) {
-        .detail-grid {
-          grid-template-columns: 1fr;
-        }
         .detail-left {
           padding-left: 0; /* Reset on mobile if needed, or keep for consistency */
         }
@@ -184,7 +181,8 @@
       }
       .post-content {
         line-height: 1.8;
-        font-size: 16px;
+        font-size: 18px;
+        padding: 10px 0;
       }
       .post-content pre {
         background: rgba(0, 0, 0, 0.05);
@@ -317,6 +315,14 @@
         border-radius: 8px;
         border: 1px solid var(--border);
       }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
     </style>
   </head>
   <body>
@@ -348,18 +354,18 @@
           <a href="/" class="back-link">← 返回列表</a>
           
           <div class="detail-grid">
-            <!-- Left: Post Content -->
+            <!-- Post Content -->
             <div class="detail-left">
               <div id="detailDate" class="timeline-date"></div>
-              <article class="glass-panel">
-                <h1 id="detailTitle" style="margin: 0 0 20px 0; font-size: 24px;"></h1>
+              <article class="glass-panel" style="animation: fadeIn 0.5s ease-out;">
+                <h1 id="detailTitle" style="margin: 0 0 20px 0; font-size: 28px;"></h1>
                 <div id="detailContent" class="post-content"></div>
               </article>
             </div>
 
-            <!-- Right: Comments -->
+            <!-- Comments (Below Post) -->
             <div class="detail-right">
-              <div class="glass-panel" style="position: sticky; top: 24px;">
+              <div class="glass-panel" style="animation: slideUp 0.5s ease-out;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
                   <h3 style="margin: 0; font-size: 18px;">评论</h3>
                   <button id="openCommentBtn" style="padding: 6px 12px; font-size: 13px;">写评论</button>
@@ -564,6 +570,10 @@
       async function loadPostDetail(postId) {
         els.listView.classList.add("hidden");
         els.detailView.classList.remove("hidden");
+        // Hide profile card in detail view
+        document.querySelector('.profile-card').classList.add('hidden');
+        // Expand main content to full width
+        document.querySelector('.container').style.gridTemplateColumns = '1fr';
         
         try {
           const resp = await fetch(`/api/v1/posts/${postId}`);
