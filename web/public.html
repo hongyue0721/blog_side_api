@@ -270,7 +270,7 @@
           const data = await resp.json();
           if (!resp.ok || data.code !== 0) throw new Error(data.message || "提交失败");
           commentContentInput.value = "";
-          setStatus("评论已提交，待审核/处理");
+          setStatus("评论已提交");
           await loadComments(postId);
         } catch (err) {
           setStatus(`提交失败：${err.message}`);

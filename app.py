@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import toml
 from fastapi import FastAPI, Header, HTTPException
@@ -11,17 +11,17 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 
-class ReplyPayload(BaseModel):
-    post_id: int
-    parent_id: int
-    author: str
-    content: str
-
-
 class PublicCommentPayload(BaseModel):
     post_id: int
     visitor_name: str
     content: str
+
+
+class UpdatePostPayload(BaseModel):
+    title: Optional[str] = None
+    summary: Optional[str] = None
+    content: Optional[str] = None
+    author: Optional[str] = None
 
 
 def load_config() -> Dict[str, Any]:
@@ -49,7 +49,7 @@ def init_sqlite(db_path: Path) -> None:
     with sqlite3.connect(db_path) as conn:
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS pending_comments (
+            CREATE TABLE IF NOT EXISTS public_comments (
                 id INTEGER PRIMARY KEY,
                 post_id INTEGER NOT NULL,
                 post_title TEXT,
@@ -60,54 +60,34 @@ def init_sqlite(db_path: Path) -> None:
             )
             """
         )
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS replies (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                post_id INTEGER NOT NULL,
-                parent_id INTEGER NOT NULL,
-                author TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-            """
-        )
         conn.commit()
-
-
-def fetch_pending_from_sqlite(db_path: Path, since: int) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute("SELECT * FROM pending_comments")
-        for row in cursor.fetchall():
-            created_at = row["created_at"] or ""
-            created_ts = _to_timestamp(created_at)
-            if created_ts >= since:
-                rows.append(dict(row))
-    return rows
-
-
-def list_replies_from_sqlite(db_path: Path) -> List[Dict[str, Any]]:
-    with sqlite3.connect(db_path) as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.execute("SELECT * FROM replies ORDER BY id DESC")
-        return [dict(row) for row in cursor.fetchall()]
 
 
 def list_public_comments_from_sqlite(db_path: Path, post_id: int) -> List[Dict[str, Any]]:
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
-        cursor = conn.execute("SELECT * FROM pending_comments WHERE post_id = ? ORDER BY id DESC", (post_id,))
+        cursor = conn.execute(
+            "SELECT * FROM public_comments WHERE post_id = ? ORDER BY id DESC",
+            (post_id,),
+        )
         return [dict(row) for row in cursor.fetchall()]
 
 
-def insert_public_comment_to_sqlite(db_path: Path, payload: PublicCommentPayload, post_title: str, post_summary: str) -> Dict[str, Any]:
+def list_all_comments_from_sqlite(db_path: Path) -> List[Dict[str, Any]]:
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.execute("SELECT * FROM public_comments ORDER BY id DESC")
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def insert_public_comment_to_sqlite(
+    db_path: Path, payload: PublicCommentPayload, post_title: str, post_summary: str
+) -> Dict[str, Any]:
     created_at = "2025-12-22T10:05:00Z"
     with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(
             """
-            INSERT INTO pending_comments (post_id, post_title, post_summary, visitor_name, content, created_at)
+            INSERT INTO public_comments (post_id, post_title, post_summary, visitor_name, content, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
             (payload.post_id, post_title, post_summary, payload.visitor_name, payload.content, created_at),
@@ -117,64 +97,35 @@ def insert_public_comment_to_sqlite(db_path: Path, payload: PublicCommentPayload
     return {"id": comment_id, "created_at": created_at}
 
 
-def insert_reply_to_sqlite(db_path: Path, payload: ReplyPayload) -> Dict[str, Any]:
-    created_at = "2025-12-22T10:05:00Z"
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.execute(
-            """
-            INSERT INTO replies (post_id, parent_id, author, content, created_at)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (payload.post_id, payload.parent_id, payload.author, payload.content, created_at),
-        )
-        conn.commit()
-        reply_id = cursor.lastrowid
-    return {"id": reply_id, "created_at": created_at}
-
-
-def _to_timestamp(created_at: Any) -> int:
-    if isinstance(created_at, (int, float)):
-        return int(created_at)
-    if isinstance(created_at, str) and created_at:
-        try:
-            from datetime import datetime
-
-            return int(datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp())
-        except Exception:
-            return 0
-    return 0
-
-
 config = load_config()
 
 server_host = config.get("server", {}).get("host", "127.0.0.1")
 server_port = int(config.get("server", {}).get("port", 8000))
-api_key = str(config.get("auth", {}).get("api_key", ""))
+admin_password = str(config.get("admin", {}).get("password", ""))
 
 storage_type = str(config.get("storage", {}).get("storage_type", "json")).lower()
 sqlite_path = Path(config.get("storage", {}).get("sqlite_path", "data/blog_api.db"))
 
-pending_file = Path(config.get("data", {}).get("pending_file", "data/pending.json"))
-replies_file = Path(config.get("data", {}).get("replies_file", "data/replies.json"))
-posts_file = Path(config.get("data", {}).get("posts_file", "data/posts.json"))
+data_config = config.get("data", {})
+comments_file = Path(data_config.get("comments_file") or data_config.get("pending_file", "data/comments.json"))
+posts_file = Path(data_config.get("posts_file", "data/posts.json"))
 
 web_root = Path(__file__).parent / "web"
 
 if storage_type == "sqlite":
     init_sqlite(sqlite_path)
 else:
-    ensure_data_file(pending_file, [])
-    ensure_data_file(replies_file, [])
+    ensure_data_file(comments_file, [])
     ensure_data_file(posts_file, [])
 
-app = FastAPI(title="Blog Comment API Sample", version="0.1.0")
+app = FastAPI(title="Blog Comment API Sample", version="0.2.0")
 
 
-def require_api_key(x_api_key: str | None) -> None:
-    if not api_key:
+def require_admin_password(x_admin_password: str | None) -> None:
+    if not admin_password:
         return
-    if not x_api_key or x_api_key != api_key:
-        raise HTTPException(status_code=401, detail="Invalid API key")
+    if not x_admin_password or x_admin_password != admin_password:
+        raise HTTPException(status_code=401, detail="Invalid admin password")
 
 
 @app.get("/")
@@ -200,20 +151,6 @@ def list_posts():
     return {"code": 0, "message": "success", "data": posts}
 
 
-@app.delete("/api/v1/posts/{post_id}")
-def delete_post(post_id: int, x_api_key: str | None = Header(default=None)):
-    require_api_key(x_api_key)
-    if storage_type == "sqlite":
-        raise HTTPException(status_code=501, detail="sqlite not implemented")
-
-    posts = read_json(posts_file)
-    remaining = [item for item in posts if int(item.get("id", 0)) != post_id]
-    if len(remaining) == len(posts):
-        return {"code": 404, "message": "not found", "data": None}
-    write_json(posts_file, remaining)
-    return {"code": 0, "message": "success", "data": {"id": post_id}}
-
-
 @app.get("/api/v1/posts/{post_id}")
 def get_post(post_id: int):
     if storage_type == "sqlite":
@@ -225,14 +162,50 @@ def get_post(post_id: int):
     return {"code": 404, "message": "not found", "data": None}
 
 
+@app.put("/api/v1/posts/{post_id}")
+def update_post(post_id: int, payload: UpdatePostPayload, x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
+    if storage_type == "sqlite":
+        raise HTTPException(status_code=501, detail="sqlite not implemented")
+
+    posts = read_json(posts_file)
+    for item in posts:
+        if int(item.get("id", 0)) == post_id:
+            if payload.title is not None:
+                item["title"] = payload.title
+            if payload.summary is not None:
+                item["summary"] = payload.summary
+            if payload.content is not None:
+                item["content"] = payload.content
+            if payload.author is not None:
+                item["author"] = payload.author
+            write_json(posts_file, posts)
+            return {"code": 0, "message": "success", "data": item}
+    return {"code": 404, "message": "not found", "data": None}
+
+
+@app.delete("/api/v1/posts/{post_id}")
+def delete_post(post_id: int, x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
+    if storage_type == "sqlite":
+        raise HTTPException(status_code=501, detail="sqlite not implemented")
+
+    posts = read_json(posts_file)
+    remaining = [item for item in posts if int(item.get("id", 0)) != post_id]
+    if len(remaining) == len(posts):
+        return {"code": 404, "message": "not found", "data": None}
+    write_json(posts_file, remaining)
+    return {"code": 0, "message": "success", "data": {"id": post_id}}
+
+
 @app.get("/api/v1/comments/public")
 def list_public_comments(post_id: int):
     if storage_type == "sqlite":
         data = list_public_comments_from_sqlite(sqlite_path, post_id)
         return {"code": 0, "message": "success", "data": data}
 
-    pending = read_json(pending_file)
-    data = [item for item in pending if int(item.get("post_id", 0)) == post_id]
+    comments = read_json(comments_file)
+    data = [item for item in comments if int(item.get("post_id", 0)) == post_id]
     return {"code": 0, "message": "success", "data": data}
 
 
@@ -250,8 +223,8 @@ def submit_public_comment(payload: PublicCommentPayload):
             post_summary = str(item.get("summary", ""))
             break
 
-    pending = read_json(pending_file)
-    next_id = (max([c.get("id", 0) for c in pending]) + 1) if pending else 1
+    comments = read_json(comments_file)
+    next_id = (max([c.get("id", 0) for c in comments]) + 1) if comments else 1
     comment_record = {
         "id": next_id,
         "post_id": payload.post_id,
@@ -261,60 +234,19 @@ def submit_public_comment(payload: PublicCommentPayload):
         "content": payload.content,
         "created_at": "2025-12-22T10:05:00Z",
     }
-    pending.append(comment_record)
-    write_json(pending_file, pending)
+    comments.append(comment_record)
+    write_json(comments_file, comments)
     return {"code": 0, "message": "success", "data": {"id": next_id, "created_at": comment_record["created_at"]}}
 
 
-@app.get("/api/v1/comments/pending")
-def get_pending_comments(since: int = 0, x_api_key: str | None = Header(default=None)):
-    require_api_key(x_api_key)
-
+@app.get("/api/v1/comments")
+def list_all_comments(x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
     if storage_type == "sqlite":
-        data = fetch_pending_from_sqlite(sqlite_path, since)
+        data = list_all_comments_from_sqlite(sqlite_path)
     else:
-        pending = read_json(pending_file)
-        data = []
-        for item in pending:
-            created_ts = _to_timestamp(item.get("created_at"))
-            if created_ts >= since:
-                data.append(item)
-
+        data = read_json(comments_file)
     return {"code": 0, "message": "success", "data": data}
-
-
-@app.get("/api/v1/comments/replies")
-def get_replies(x_api_key: str | None = Header(default=None)):
-    require_api_key(x_api_key)
-    if storage_type == "sqlite":
-        replies = list_replies_from_sqlite(sqlite_path)
-    else:
-        replies = read_json(replies_file)
-    return {"code": 0, "message": "success", "data": replies}
-
-
-@app.post("/api/v1/comments")
-def submit_reply(payload: ReplyPayload, x_api_key: str | None = Header(default=None)):
-    require_api_key(x_api_key)
-
-    if storage_type == "sqlite":
-        result = insert_reply_to_sqlite(sqlite_path, payload)
-    else:
-        replies = read_json(replies_file)
-        next_id = (max([r.get("id", 0) for r in replies]) + 1) if replies else 1
-        reply_record = {
-            "id": next_id,
-            "post_id": payload.post_id,
-            "parent_id": payload.parent_id,
-            "author": payload.author,
-            "content": payload.content,
-            "created_at": "2025-12-22T10:05:00Z",
-        }
-        replies.append(reply_record)
-        write_json(replies_file, replies)
-        result = {"id": next_id, "created_at": reply_record["created_at"]}
-
-    return {"code": 0, "message": "success", "data": result}
 
 
 if __name__ == "__main__":

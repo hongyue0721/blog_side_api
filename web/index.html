@@ -129,14 +129,13 @@
       <h1>博客管理面板</h1>
       <div class="tabs">
         <button class="tab active" data-tab="posts">博客管理</button>
-        <button class="tab" data-tab="pending">待处理评论</button>
-        <button class="tab" data-tab="replies">回复记录</button>
+        <button class="tab" data-tab="comments">评论管理</button>
       </div>
     </header>
     <main>
       <section class="panel">
         <div class="toolbar">
-          <input id="apiKeyInput" type="text" placeholder="API Key（与服务端一致）" />
+          <input id="adminPasswordInput" type="password" placeholder="管理端密码（config.toml）" />
           <button id="refreshBtn">刷新当前列表</button>
           <span id="status" class="muted"></span>
         </div>
@@ -147,28 +146,21 @@
         <div id="postsContainer" class="empty">暂无数据</div>
       </section>
 
-      <section id="pendingPanel" class="panel hidden">
-        <h2>待处理评论</h2>
-        <div id="pendingContainer" class="empty">暂无数据</div>
-      </section>
-
-      <section id="repliesPanel" class="panel hidden">
-        <h2>回复记录</h2>
-        <div id="repliesContainer" class="empty">暂无数据</div>
+      <section id="commentsPanel" class="panel hidden">
+        <h2>评论管理</h2>
+        <div id="commentsContainer" class="empty">暂无数据</div>
       </section>
     </main>
 
     <script>
-      const apiKeyInput = document.getElementById("apiKeyInput");
-      const pendingContainer = document.getElementById("pendingContainer");
-      const repliesContainer = document.getElementById("repliesContainer");
+      const adminPasswordInput = document.getElementById("adminPasswordInput");
+      const commentsContainer = document.getElementById("commentsContainer");
       const postsContainer = document.getElementById("postsContainer");
       const statusEl = document.getElementById("status");
       const tabs = document.querySelectorAll(".tab");
       const panels = {
         posts: document.getElementById("postsPanel"),
-        pending: document.getElementById("pendingPanel"),
-        replies: document.getElementById("repliesPanel"),
+        comments: document.getElementById("commentsPanel"),
       };
       let activeTab = "posts";
 
@@ -177,8 +169,12 @@
       }
 
       function getHeaders() {
-        const apiKey = apiKeyInput.value.trim();
-        return apiKey ? { "X-API-KEY": apiKey } : {};
+        const password = adminPasswordInput.value.trim();
+        return password ? { "X-ADMIN-PASSWORD": password } : {};
+      }
+
+      function isAuthed() {
+        return !!adminPasswordInput.value.trim();
       }
 
       function setActiveTab(tabName) {
@@ -207,22 +203,22 @@
         container.innerHTML = `<table>${thead}${tbody}</table>`;
       }
 
-      async function loadPending() {
-        setStatus("正在加载待处理评论...");
+      async function loadComments() {
+        setStatus("正在加载评论列表...");
         try {
-          const resp = await fetch(`/api/v1/comments/pending?since=0`, { headers: getHeaders() });
+          const resp = await fetch(`/api/v1/comments`, { headers: getHeaders() });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const data = await resp.json();
-          renderTable(pendingContainer, data.data || [], [
+          renderTable(commentsContainer, data.data || [], [
             { title: "ID", key: "id" },
             { title: "文章", key: "post_title" },
             { title: "访客", key: "visitor_name" },
             { title: "评论", key: "content" },
             { title: "时间", key: "created_at" },
           ]);
-          setStatus("待处理评论加载完成");
+          setStatus("评论列表加载完成");
         } catch (err) {
-          pendingContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
+          commentsContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
           setStatus("加载失败");
         }
       }
@@ -240,10 +236,13 @@
             { title: "时间", key: "created_at" },
             {
               title: "操作",
-              render: (row) => `<button class='danger' data-id='${row.id}'>删除</button>`,
+              render: (row) => `
+                <button data-action='edit' data-id='${row.id}'>编辑</button>
+                <button class='danger' data-action='delete' data-id='${row.id}'>删除</button>
+              `,
             },
           ]);
-          bindDeleteButtons();
+          bindPostActions();
           setStatus("博客列表加载完成");
         } catch (err) {
           postsContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
@@ -270,36 +269,59 @@
         }
       }
 
-      function bindDeleteButtons() {
-        postsContainer.querySelectorAll("button.danger").forEach((btn) => {
-          btn.addEventListener("click", () => deletePost(btn.dataset.id));
-        });
-      }
+      async function editPost(postId) {
+        const title = prompt("请输入新标题（留空则不修改）");
+        const summary = prompt("请输入新摘要（留空则不修改）");
+        const content = prompt("请输入新正文（留空则不修改）");
+        const author = prompt("请输入作者（留空则不修改）");
+        if (title === null && summary === null && content === null && author === null) return;
 
-      async function loadReplies() {
-        setStatus("正在加载回复记录...");
+        const payload = {};
+        if (title) payload.title = title;
+        if (summary) payload.summary = summary;
+        if (content) payload.content = content;
+        if (author) payload.author = author;
+        if (Object.keys(payload).length === 0) {
+          setStatus("未填写任何修改内容");
+          return;
+        }
+
+        setStatus("正在保存修改...");
         try {
-          const resp = await fetch(`/api/v1/comments/replies`, { headers: getHeaders() });
+          const resp = await fetch(`/api/v1/posts/${postId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...getHeaders() },
+            body: JSON.stringify(payload),
+          });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const data = await resp.json();
-          renderTable(repliesContainer, data.data || [], [
-            { title: "ID", key: "id" },
-            { title: "父评论", key: "parent_id" },
-            { title: "作者", key: "author", render: (r) => `<span class='badge'>${r.author}</span>` },
-            { title: "内容", key: "content" },
-            { title: "时间", key: "created_at" },
-          ]);
-          setStatus("回复记录加载完成");
+          if (data.code !== 0) throw new Error(data.message || "保存失败");
+          await loadPosts();
+          setStatus("保存完成");
         } catch (err) {
-          repliesContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
-          setStatus("加载失败");
+          setStatus(`保存失败：${err.message}`);
         }
       }
 
+      function bindPostActions() {
+        postsContainer.querySelectorAll("button").forEach((btn) => {
+          const action = btn.dataset.action;
+          if (action === "delete") {
+            btn.addEventListener("click", () => deletePost(btn.dataset.id));
+          }
+          if (action === "edit") {
+            btn.addEventListener("click", () => editPost(btn.dataset.id));
+          }
+        });
+      }
+
       async function refreshActive() {
+        if (!isAuthed()) {
+          setStatus("请先输入管理端密码");
+          return;
+        }
         if (activeTab === "posts") return loadPosts();
-        if (activeTab === "pending") return loadPending();
-        return loadReplies();
+        return loadComments();
       }
 
       tabs.forEach((tab) => {
@@ -312,7 +334,7 @@
       document.getElementById("refreshBtn").addEventListener("click", refreshActive);
 
       setActiveTab("posts");
-      loadPosts();
+      refreshActive();
     </script>
   </body>
 </html>

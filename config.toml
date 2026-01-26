@@ -9,9 +9,9 @@ port = 8000
 # 是否开启调试模式
 debug = true
 
-[auth]
-# API 鉴权密钥（需与 bot 端一致）
-api_key = "your-blog-api-key"
+[admin]
+# 管理端密码（浏览器管理页需输入该密码）
+password = "change-me"
 
 [storage]
 # 存储类型：json 或 sqlite
@@ -20,9 +20,7 @@ storage_type = "json"
 sqlite_path = "data/blog_api.db"
 
 [data]
-# 待处理评论数据文件路径（JSON）
-pending_file = "data/pending.json"
-# 回复结果存储文件路径（JSON）
-replies_file = "data/replies.json"
+# 评论数据文件路径（JSON，仅用于博客端展示）
+comments_file = "data/comments.json"
 # 公开博客文章数据（JSON）
 posts_file = "data/posts.json"
