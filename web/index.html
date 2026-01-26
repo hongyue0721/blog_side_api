@@ -225,6 +225,17 @@
       <section id="commentsPanel" class="panel hidden">
         <h2>评论管理</h2>
         <div id="commentsContainer" class="empty">暂无数据</div>
+        <div id="commentEditor" class="editor hidden">
+          <h3>编辑评论</h3>
+          <div class="form-row">
+            <label>评论内容</label>
+            <textarea id="editCommentContent" rows="5"></textarea>
+          </div>
+          <div class="form-row">
+            <button id="saveCommentBtn" type="button">保存评论</button>
+            <button id="cancelCommentBtn" type="button" class="secondary">取消编辑</button>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -235,6 +246,10 @@
       const postDetail = document.getElementById("postDetail");
       const postEditor = document.getElementById("postEditor");
       const statusEl = document.getElementById("status");
+      const commentEditor = document.getElementById("commentEditor");
+      const editCommentContent = document.getElementById("editCommentContent");
+      const saveCommentBtn = document.getElementById("saveCommentBtn");
+      const cancelCommentBtn = document.getElementById("cancelCommentBtn");
       const tabs = document.querySelectorAll(".tab");
       const panels = {
         posts: document.getElementById("postsPanel"),
@@ -252,6 +267,7 @@
       let activeTab = "posts";
       let currentPostId = null;
       let currentPost = null;
+      let currentCommentId = null;
 
       function setStatus(text) {
         statusEl.textContent = text;
@@ -343,6 +359,7 @@
             },
           ]);
           bindCommentActions();
+          bindCommentRowClicks();
           setStatus("评论列表加载完成");
         } catch (err) {
           commentsContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
@@ -370,6 +387,7 @@
             },
           ]);
           bindPostActions();
+          bindPostRowClicks();
           setStatus("博客列表加载完成");
         } catch (err) {
           postsContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
@@ -514,9 +532,25 @@
         imageUploadStatus.textContent = "上传完成";
       }
 
-      async function updateComment(commentId) {
-        const content = prompt("请输入新评论内容（留空则不修改）");
-        if (content === null) return;
+      function openCommentEditor(comment) {
+        currentCommentId = comment?.id ?? null;
+        editCommentContent.value = comment?.content || "";
+        commentEditor.classList.remove("hidden");
+        commentEditor.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      function closeCommentEditor() {
+        currentCommentId = null;
+        editCommentContent.value = "";
+        commentEditor.classList.add("hidden");
+      }
+
+      async function updateComment() {
+        if (!currentCommentId) {
+          setStatus("请先选择评论");
+          return;
+        }
+        const content = editCommentContent.value.trim();
 
         const payload = {};
         if (content) payload.content = content;
@@ -527,7 +561,7 @@
 
         setStatus("正在保存评论修改...");
         try {
-          const resp = await fetch(`/api/v1/comments/${commentId}`, {
+          const resp = await fetch(`/api/v1/comments/${currentCommentId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json", ...getHeaders() },
             body: JSON.stringify(payload),
@@ -536,6 +570,7 @@
           const data = await resp.json();
           if (data.code !== 0) throw new Error(data.message || "保存失败");
           await loadComments();
+          closeCommentEditor();
           setStatus("保存完成");
         } catch (err) {
           setStatus(`保存失败：${err.message}`);
@@ -565,11 +600,40 @@
         commentsContainer.querySelectorAll("button").forEach((btn) => {
           const action = btn.dataset.action;
           if (action === "comment-edit") {
-            btn.addEventListener("click", () => updateComment(btn.dataset.id));
+            btn.addEventListener("click", () => {
+              const row = btn.closest("tr");
+              const contentCell = row?.querySelector("td:nth-child(3)");
+              openCommentEditor({ id: btn.dataset.id, content: contentCell?.textContent || "" });
+            });
           }
           if (action === "comment-delete") {
             btn.addEventListener("click", () => deleteComment(btn.dataset.id));
           }
+        });
+      }
+
+      function bindCommentRowClicks() {
+        commentsContainer.querySelectorAll("tbody tr").forEach((row) => {
+          row.addEventListener("click", (event) => {
+            if (event.target.tagName === "BUTTON") return;
+            const idCell = row.querySelector("td:nth-child(1)");
+            const contentCell = row.querySelector("td:nth-child(3)");
+            const commentId = idCell?.textContent?.trim();
+            if (!commentId) return;
+            openCommentEditor({ id: commentId, content: contentCell?.textContent || "" });
+          });
+        });
+      }
+
+      function bindPostRowClicks() {
+        postsContainer.querySelectorAll("tbody tr").forEach((row) => {
+          row.addEventListener("click", (event) => {
+            if (event.target.tagName === "BUTTON") return;
+            const idCell = row.querySelector("td:nth-child(1)");
+            const postId = idCell?.textContent?.trim();
+            if (!postId) return;
+            editPost(postId);
+          });
         });
       }
 
@@ -593,6 +657,8 @@
       savePostBtn.addEventListener("click", saveSelectedFields);
       clearSelectBtn.addEventListener("click", clearEditSelection);
       uploadImageBtn.addEventListener("click", uploadImages);
+      saveCommentBtn.addEventListener("click", updateComment);
+      cancelCommentBtn.addEventListener("click", closeCommentEditor);
 
       setActiveTab("posts");
       refreshActive();
