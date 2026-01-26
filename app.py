@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -22,6 +23,11 @@ class UpdatePostPayload(BaseModel):
     summary: Optional[str] = None
     content: Optional[str] = None
     author: Optional[str] = None
+
+
+class UpdateCommentPayload(BaseModel):
+    visitor_name: Optional[str] = None
+    content: Optional[str] = None
 
 
 def load_config() -> Dict[str, Any]:
@@ -83,7 +89,7 @@ def list_all_comments_from_sqlite(db_path: Path) -> List[Dict[str, Any]]:
 def insert_public_comment_to_sqlite(
     db_path: Path, payload: PublicCommentPayload, post_title: str, post_summary: str
 ) -> Dict[str, Any]:
-    created_at = "2025-12-22T10:05:00Z"
+    created_at = _now_local_iso()
     with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(
             """
@@ -95,6 +101,36 @@ def insert_public_comment_to_sqlite(
         conn.commit()
         comment_id = cursor.lastrowid
     return {"id": comment_id, "created_at": created_at}
+
+
+def update_comment_in_sqlite(db_path: Path, comment_id: int, payload: UpdateCommentPayload) -> Optional[Dict[str, Any]]:
+    fields = []
+    values: List[Any] = []
+    if payload.visitor_name is not None:
+        fields.append("visitor_name = ?")
+        values.append(payload.visitor_name)
+    if payload.content is not None:
+        fields.append("content = ?")
+        values.append(payload.content)
+    if not fields:
+        return None
+
+    values.append(comment_id)
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.execute(f"UPDATE public_comments SET {', '.join(fields)} WHERE id = ?", values)
+        conn.commit()
+        if cursor.rowcount == 0:
+            return None
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM public_comments WHERE id = ?", (comment_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def delete_comment_in_sqlite(db_path: Path, comment_id: int) -> bool:
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.execute("DELETE FROM public_comments WHERE id = ?", (comment_id,))
+        conn.commit()
+        return cursor.rowcount > 0
 
 
 config = load_config()
@@ -126,6 +162,10 @@ def require_admin_password(x_admin_password: str | None) -> None:
         return
     if not x_admin_password or x_admin_password != admin_password:
         raise HTTPException(status_code=401, detail="Invalid admin password")
+
+
+def _now_local_iso() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
 @app.get("/")
@@ -232,7 +272,7 @@ def submit_public_comment(payload: PublicCommentPayload):
         "post_summary": post_summary,
         "visitor_name": payload.visitor_name,
         "content": payload.content,
-        "created_at": "2025-12-22T10:05:00Z",
+        "created_at": _now_local_iso(),
     }
     comments.append(comment_record)
     write_json(comments_file, comments)
@@ -247,6 +287,47 @@ def list_all_comments(x_admin_password: str | None = Header(default=None)):
     else:
         data = read_json(comments_file)
     return {"code": 0, "message": "success", "data": data}
+
+
+@app.put("/api/v1/comments/{comment_id}")
+def update_comment(
+    comment_id: int, payload: UpdateCommentPayload, x_admin_password: str | None = Header(default=None)
+):
+    require_admin_password(x_admin_password)
+    if storage_type == "sqlite":
+        updated = update_comment_in_sqlite(sqlite_path, comment_id, payload)
+        if not updated:
+            return {"code": 404, "message": "not found", "data": None}
+        return {"code": 0, "message": "success", "data": updated}
+
+    comments = read_json(comments_file)
+    for item in comments:
+        if int(item.get("id", 0)) == comment_id:
+            if payload.visitor_name is not None:
+                item["visitor_name"] = payload.visitor_name
+            if payload.content is not None:
+                item["content"] = payload.content
+            item["updated_at"] = _now_local_iso()
+            write_json(comments_file, comments)
+            return {"code": 0, "message": "success", "data": item}
+    return {"code": 404, "message": "not found", "data": None}
+
+
+@app.delete("/api/v1/comments/{comment_id}")
+def delete_comment(comment_id: int, x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
+    if storage_type == "sqlite":
+        ok = delete_comment_in_sqlite(sqlite_path, comment_id)
+        if not ok:
+            return {"code": 404, "message": "not found", "data": None}
+        return {"code": 0, "message": "success", "data": {"id": comment_id}}
+
+    comments = read_json(comments_file)
+    remaining = [item for item in comments if int(item.get("id", 0)) != comment_id]
+    if len(remaining) == len(comments):
+        return {"code": 404, "message": "not found", "data": None}
+    write_json(comments_file, remaining)
+    return {"code": 0, "message": "success", "data": {"id": comment_id}}
 
 
 if __name__ == "__main__":

@@ -146,6 +146,11 @@
         <div id="postsContainer" class="empty">暂无数据</div>
       </section>
 
+      <section id="postDetailPanel" class="panel hidden">
+        <h2>文章详情</h2>
+        <div id="postDetail" class="empty">请选择文章查看</div>
+      </section>
+
       <section id="commentsPanel" class="panel hidden">
         <h2>评论管理</h2>
         <div id="commentsContainer" class="empty">暂无数据</div>
@@ -156,6 +161,7 @@
       const adminPasswordInput = document.getElementById("adminPasswordInput");
       const commentsContainer = document.getElementById("commentsContainer");
       const postsContainer = document.getElementById("postsContainer");
+      const postDetail = document.getElementById("postDetail");
       const statusEl = document.getElementById("status");
       const tabs = document.querySelectorAll(".tab");
       const panels = {
@@ -215,7 +221,15 @@
             { title: "访客", key: "visitor_name" },
             { title: "评论", key: "content" },
             { title: "时间", key: "created_at" },
+            {
+              title: "操作",
+              render: (row) => `
+                <button data-action='comment-edit' data-id='${row.id}'>编辑</button>
+                <button class='danger' data-action='comment-delete' data-id='${row.id}'>删除</button>
+              `,
+            },
           ]);
+          bindCommentActions();
           setStatus("评论列表加载完成");
         } catch (err) {
           commentsContainer.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
@@ -237,6 +251,7 @@
             {
               title: "操作",
               render: (row) => `
+                <button data-action='view' data-id='${row.id}'>查看</button>
                 <button data-action='edit' data-id='${row.id}'>编辑</button>
                 <button class='danger' data-action='delete' data-id='${row.id}'>删除</button>
               `,
@@ -269,6 +284,28 @@
         }
       }
 
+      async function viewPost(postId) {
+        if (!postId) return;
+        setStatus("正在加载文章详情...");
+        try {
+          const resp = await fetch(`/api/v1/posts/${postId}`, { headers: getHeaders() });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (!data.data) throw new Error("未找到文章");
+          const post = data.data;
+          postDetail.innerHTML = `
+            <div class="meta">ID：${post.id} ｜ 作者：${post.author || ""} ｜ 时间：${post.created_at || ""}</div>
+            <h3>${post.title || ""}</h3>
+            <p>${post.summary || ""}</p>
+            <pre style="white-space: pre-wrap;">${post.content || ""}</pre>
+          `;
+          setStatus("文章详情加载完成");
+        } catch (err) {
+          postDetail.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
+          setStatus("加载失败");
+        }
+      }
+
       async function editPost(postId) {
         const title = prompt("请输入新标题（留空则不修改）");
         const summary = prompt("请输入新摘要（留空则不修改）");
@@ -297,6 +334,7 @@
           const data = await resp.json();
           if (data.code !== 0) throw new Error(data.message || "保存失败");
           await loadPosts();
+          await viewPost(postId);
           setStatus("保存完成");
         } catch (err) {
           setStatus(`保存失败：${err.message}`);
@@ -311,6 +349,70 @@
           }
           if (action === "edit") {
             btn.addEventListener("click", () => editPost(btn.dataset.id));
+          }
+          if (action === "view") {
+            btn.addEventListener("click", () => viewPost(btn.dataset.id));
+          }
+        });
+      }
+
+      async function updateComment(commentId) {
+        const visitorName = prompt("请输入新昵称（留空则不修改）");
+        const content = prompt("请输入新评论内容（留空则不修改）");
+        if (visitorName === null && content === null) return;
+
+        const payload = {};
+        if (visitorName) payload.visitor_name = visitorName;
+        if (content) payload.content = content;
+        if (Object.keys(payload).length === 0) {
+          setStatus("未填写任何修改内容");
+          return;
+        }
+
+        setStatus("正在保存评论修改...");
+        try {
+          const resp = await fetch(`/api/v1/comments/${commentId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", ...getHeaders() },
+            body: JSON.stringify(payload),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message || "保存失败");
+          await loadComments();
+          setStatus("保存完成");
+        } catch (err) {
+          setStatus(`保存失败：${err.message}`);
+        }
+      }
+
+      async function deleteComment(commentId) {
+        if (!commentId) return;
+        if (!confirm(`确定删除评论 ID=${commentId} 吗？`)) return;
+        setStatus("正在删除评论...");
+        try {
+          const resp = await fetch(`/api/v1/comments/${commentId}`, {
+            method: "DELETE",
+            headers: getHeaders(),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message || "删除失败");
+          await loadComments();
+          setStatus("删除完成");
+        } catch (err) {
+          setStatus(`删除失败：${err.message}`);
+        }
+      }
+
+      function bindCommentActions() {
+        commentsContainer.querySelectorAll("button").forEach((btn) => {
+          const action = btn.dataset.action;
+          if (action === "comment-edit") {
+            btn.addEventListener("click", () => updateComment(btn.dataset.id));
+          }
+          if (action === "comment-delete") {
+            btn.addEventListener("click", () => deleteComment(btn.dataset.id));
           }
         });
       }
