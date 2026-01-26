@@ -172,6 +172,7 @@
       <div class="tabs">
         <button class="tab active" data-tab="posts">博客管理</button>
         <button class="tab" data-tab="comments">评论管理</button>
+        <button class="tab" data-tab="settings">博客设置</button>
       </div>
     </header>
     <main>
@@ -237,6 +238,33 @@
           </div>
         </div>
       </section>
+
+      <section id="settingsPanel" class="panel hidden">
+        <h2>博客设置</h2>
+        <div class="form-row">
+          <label>博客名称</label>
+          <input id="settingName" type="text" placeholder="我的博客" />
+        </div>
+        <div class="form-row">
+          <label>个人简介</label>
+          <textarea id="settingIntro" rows="3" placeholder="介绍一下你自己..."></textarea>
+        </div>
+        <div class="form-row">
+          <label>头像 URL</label>
+          <input id="settingAvatar" type="text" placeholder="https://..." />
+        </div>
+        <div class="form-row">
+          <label>背景图片 URL</label>
+          <input id="settingBg" type="text" placeholder="https://..." />
+        </div>
+        <div class="form-row">
+          <label>主题色</label>
+          <input id="settingColor" type="color" value="#2563eb" style="height: 40px; padding: 2px;" />
+        </div>
+        <div class="form-row">
+          <button id="saveSettingsBtn" type="button">保存设置</button>
+        </div>
+      </section>
     </main>
 
     <script>
@@ -250,10 +278,16 @@
       const editCommentContent = document.getElementById("editCommentContent");
       const saveCommentBtn = document.getElementById("saveCommentBtn");
       const cancelCommentBtn = document.getElementById("cancelCommentBtn");
-      const tabs = document.querySelectorAll(".tab");
+      const saveSettingsBtn = document.getElementById("saveSettingsBtn");
+      const settingName = document.getElementById("settingName");
+      const settingIntro = document.getElementById("settingIntro");
+      const settingAvatar = document.getElementById("settingAvatar");
+      const settingBg = document.getElementById("settingBg");
+      const settingColor = document.getElementById("settingColor");
       const panels = {
         posts: document.getElementById("postsPanel"),
         comments: document.getElementById("commentsPanel"),
+        settings: document.getElementById("settingsPanel"),
       };
       const editTitleInput = document.getElementById("editTitle");
       const editSummaryInput = document.getElementById("editSummary");
@@ -370,7 +404,8 @@
       async function loadPosts() {
         setStatus("正在加载博客列表...");
         try {
-          const resp = await fetch(`/api/v1/posts`, { headers: getHeaders() });
+          // Fetch up to 100 posts for admin management
+          const resp = await fetch(`/api/v1/posts?size=100`, { headers: getHeaders() });
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const data = await resp.json();
           renderTable(postsContainer, data.data || [], [
@@ -637,13 +672,56 @@
         });
       }
 
+      async function loadSettings() {
+        setStatus("正在加载设置...");
+        try {
+          const resp = await fetch(`/api/v1/settings`, { headers: getHeaders() });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const res = await resp.json();
+          const data = res.data || {};
+          settingName.value = data.name || "";
+          settingIntro.value = data.intro || "";
+          settingAvatar.value = data.avatar || "";
+          settingBg.value = data.background_image || "";
+          settingColor.value = data.theme_color || "#2563eb";
+          setStatus("设置加载完成");
+        } catch (err) {
+          setStatus(`加载设置失败：${err.message}`);
+        }
+      }
+
+      async function saveSettings() {
+        setStatus("正在保存设置...");
+        const payload = {
+          name: settingName.value.trim(),
+          intro: settingIntro.value,
+          avatar: settingAvatar.value.trim(),
+          background_image: settingBg.value.trim(),
+          theme_color: settingColor.value,
+        };
+        try {
+          const resp = await fetch(`/api/v1/settings`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...getHeaders() },
+            body: JSON.stringify(payload),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message || "保存失败");
+          setStatus("设置已保存");
+        } catch (err) {
+          setStatus(`保存设置失败：${err.message}`);
+        }
+      }
+
       async function refreshActive() {
         if (!isAuthed()) {
           setStatus("请先输入管理端密码");
           return;
         }
         if (activeTab === "posts") return loadPosts();
-        return loadComments();
+        if (activeTab === "comments") return loadComments();
+        if (activeTab === "settings") return loadSettings();
       }
 
       tabs.forEach((tab) => {
@@ -659,6 +737,7 @@
       uploadImageBtn.addEventListener("click", uploadImages);
       saveCommentBtn.addEventListener("click", updateComment);
       cancelCommentBtn.addEventListener("click", closeCommentEditor);
+      saveSettingsBtn.addEventListener("click", saveSettings);
 
       setActiveTab("posts");
       refreshActive();

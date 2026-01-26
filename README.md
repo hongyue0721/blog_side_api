@@ -20,6 +20,8 @@
 - `DELETE /api/v1/comments/{id}`：删除评论（管理端使用）
 - `GET /api/v1/comments/public?post_id=...`：公开评论列表
 - `POST /api/v1/comments/public`：公开评论提交
+- `GET /api/v1/settings`：获取博客设置（公开）
+- `POST /api/v1/settings`：更新博客设置（管理端使用）
 
 ## 📦 目录结构
 ```
@@ -31,11 +33,11 @@ blog_side_api/
 ├── STRUCTURE.md         # 结构说明
 ├── web/
 │   ├── index.html       # 管理前端单页（Tab 切换）
-│   ├── public.html      # 公开博客单页（列表 + 详情 + 评论）
-│   └── post.html        # 旧版详情页（当前未被路由使用，保留作参考）
+│   └── public.html      # 公开博客单页（列表 + 详情 + 评论）
 ├── data/
 │   ├── comments.json    # 评论数据（示例）
-│   └── posts.json       # 公开博客示例数据（含图片字段）
+│   ├── posts.json       # 公开博客示例数据（含图片字段）
+│   └── settings.json    # 博客设置数据（头像/背景/主题色等）
 └── uploads/
     └── images/          # 管理端上传图片保存位置
 ```
@@ -227,3 +229,6 @@ curl -X POST "http://127.0.0.1:8000/api/v1/uploads/image" \
 
 ## ⚠️ 注意
 此样板为教学用途，数据以 JSON 文件模拟存储，实际部署请替换为数据库。
+
+## 🙏 致谢
+感谢 **gemini-3-pro-preview-high-search** 和 **gpt-5.2-codex** 对本项目的贡献。

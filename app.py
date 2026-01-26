@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import toml
-from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -33,6 +33,14 @@ class UpdatePostPayload(BaseModel):
 
 class UpdateCommentPayload(BaseModel):
     content: Optional[str] = None
+
+
+class SettingsPayload(BaseModel):
+    avatar: Optional[str] = None
+    name: Optional[str] = None
+    intro: Optional[str] = None
+    background_image: Optional[str] = None
+    theme_color: Optional[str] = None
 
 
 def load_config() -> Dict[str, Any]:
@@ -146,6 +154,7 @@ sqlite_path = Path(config.get("storage", {}).get("sqlite_path", "data/blog_api.d
 data_config = config.get("data", {})
 comments_file = Path(data_config.get("comments_file") or data_config.get("pending_file", "data/comments.json"))
 posts_file = Path(data_config.get("posts_file", "data/posts.json"))
+settings_file = Path(data_config.get("settings_file", "data/settings.json"))
 images_dir = Path(data_config.get("images_dir", "data/uploads"))
 
 web_root = Path(__file__).parent / "web"
@@ -156,6 +165,7 @@ if storage_type == "sqlite":
 else:
     ensure_data_file(comments_file, [])
     ensure_data_file(posts_file, [])
+    ensure_data_file(settings_file, {})
 
 images_dir.mkdir(parents=True, exist_ok=True)
 uploads_images_dir.mkdir(parents=True, exist_ok=True)
@@ -219,14 +229,45 @@ def upload_image(file: UploadFile = File(...), x_admin_password: str | None = He
     }
 
 
+@app.get("/api/v1/settings")
+def get_settings():
+    return {"code": 0, "message": "success", "data": read_json(settings_file)}
+
+
+@app.post("/api/v1/settings")
+def update_settings(payload: SettingsPayload, x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
+    current = read_json(settings_file)
+    if payload.avatar is not None:
+        current["avatar"] = payload.avatar
+    if payload.name is not None:
+        current["name"] = payload.name
+    if payload.intro is not None:
+        current["intro"] = payload.intro
+    if payload.background_image is not None:
+        current["background_image"] = payload.background_image
+    if payload.theme_color is not None:
+        current["theme_color"] = payload.theme_color
+    write_json(settings_file, current)
+    return {"code": 0, "message": "success", "data": current}
+
+
 @app.get("/api/v1/posts")
-def list_posts():
+def list_posts(page: int = Query(1, ge=1), size: int = Query(10, ge=1, le=100)):
     if storage_type == "sqlite":
-        return {"code": 0, "message": "success", "data": []}
+        return {"code": 0, "message": "success", "data": [], "total": 0}
     posts = read_json(posts_file)
-    for item in posts:
+    # Sort by id desc (newest first)
+    posts.sort(key=lambda x: int(x.get("id", 0)), reverse=True)
+
+    total = len(posts)
+    start = (page - 1) * size
+    end = start + size
+    paginated_posts = posts[start:end]
+
+    for item in paginated_posts:
         item.pop("author", None)
-    return {"code": 0, "message": "success", "data": posts}
+    return {"code": 0, "message": "success", "data": paginated_posts, "total": total}
 
 
 @app.post("/api/v1/posts")
