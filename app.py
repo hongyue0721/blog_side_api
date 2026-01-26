@@ -229,6 +229,24 @@ def upload_image(file: UploadFile = File(...), x_admin_password: str | None = He
     }
 
 
+@app.delete("/api/v1/uploads/images/{image_name}")
+def delete_image(image_name: str, x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
+    # Security check: prevent directory traversal
+    if ".." in image_name or "/" in image_name or "\\" in image_name:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    target_path = uploads_images_dir / image_name
+    if not target_path.exists():
+        return {"code": 404, "message": "not found", "data": None}
+    
+    try:
+        target_path.unlink()
+        return {"code": 0, "message": "success", "data": {"filename": image_name}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/v1/settings")
 def get_settings():
     return {"code": 0, "message": "success", "data": read_json(settings_file)}

@@ -29,17 +29,34 @@
       body {
         margin: 0;
         background: var(--bg);
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
         color: var(--text);
         min-height: 100vh;
         transition: color 0.3s, background-color 0.3s;
+      }
+      .hero-bg {
+        position: fixed;
+        top: 0; left: 0; width: 100%;
+        height: 40vh;
+        background-size: cover;
+        background-position: center;
+        z-index: -1;
+        transition: filter 0.3s;
+      }
+      .hero-bg::after {
+        content: '';
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 50%;
+        background: linear-gradient(to bottom, transparent, var(--bg));
+      }
+      html.dark .hero-bg {
+        filter: brightness(0.5);
       }
       .container {
         max-width: 1200px;
         margin: 0 auto;
         padding: 24px;
+        padding-top: 25vh; /* Push content down to reveal hero */
         display: grid;
         grid-template-columns: 300px 1fr;
         gap: 24px;
@@ -48,6 +65,12 @@
       @media (max-width: 768px) {
         .container {
           grid-template-columns: 1fr;
+          padding-top: 20vh;
+        }
+        .profile-card {
+          position: relative; /* Unstick on mobile */
+          top: 0;
+          transition: opacity 0.2s;
         }
       }
       .glass-panel {
@@ -328,13 +351,13 @@
     </style>
   </head>
   <body>
+    <div id="heroBg" class="hero-bg"></div>
     <button id="themeToggle" class="theme-toggle" title="切换深色模式">🌓</button>
     
     <div class="container">
       <!-- Left Sidebar: Profile -->
       <aside class="glass-panel profile-card">
         <img id="profileAvatar" src="" alt="Avatar" class="avatar hidden" />
-        <div id="defaultAvatar" class="avatar" style="display: flex; align-items: center; justify-content: center; font-size: 48px; color: #9ca3af;">?</div>
         <h2 id="profileName" class="profile-name">Loading...</h2>
         <div id="profileIntro" class="profile-intro"></div>
       </aside>
@@ -404,7 +427,6 @@
       // Elements
       const els = {
         avatar: document.getElementById("profileAvatar"),
-        defaultAvatar: document.getElementById("defaultAvatar"),
         name: document.getElementById("profileName"),
         intro: document.getElementById("profileIntro"),
         listView: document.getElementById("listView"),
@@ -501,15 +523,19 @@
           if (data.avatar) {
             els.avatar.src = data.avatar;
             els.avatar.classList.remove("hidden");
-            els.defaultAvatar.classList.add("hidden");
           }
 
           if (data.background_image) {
-            document.body.style.backgroundImage = `url('${data.background_image}')`;
+            document.getElementById("heroBg").style.backgroundImage = `url('${data.background_image}')`;
             // Try to extract color from background image
             try {
               const color = await extractDominantColor(data.background_image);
               document.documentElement.style.setProperty('--primary', color);
+              // Set body background to a very light/dark version of primary color for "fill" effect
+              // But user asked for "background color based on image main tone"
+              // We can set --bg to a mixed color or just keep it simple.
+              // For now, let's stick to the requested "pull down fills with background color"
+              // which is handled by the body background being visible behind the fixed hero.
             } catch (e) {
               console.log("Could not extract color from image, using default or config");
               if (data.theme_color) {
@@ -650,6 +676,22 @@
           els.submitCommentBtn.disabled = false;
         }
       }
+
+      // Scroll Effect for Mobile Profile
+      window.addEventListener("scroll", () => {
+        if (window.innerWidth <= 768) {
+          const scrollY = window.scrollY;
+          const profileCard = document.querySelector('.profile-card');
+          // Fade out profile card as we scroll down
+          // Start fading at 0, fully transparent by 300px
+          const opacity = Math.max(0, 1 - scrollY / 300);
+          profileCard.style.opacity = opacity;
+          
+          // If fully transparent, hide it to prevent clicks?
+          // Or just let it scroll away naturally since it is position: relative now.
+          // The user asked for "fade out", visual opacity is enough.
+        }
+      });
 
       // Event Listeners
       els.prevPage.addEventListener("click", () => {

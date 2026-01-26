@@ -294,6 +294,7 @@
              <input id="settingBg" type="text" placeholder="https://..." style="flex:1;" />
              <input id="uploadBgInput" type="file" accept="image/*" style="display:none" />
              <button type="button" onclick="document.getElementById('uploadBgInput').click()">上传</button>
+             <button id="deleteBgBtn" type="button" class="danger">删除</button>
           </div>
         </div>
         <div class="form-row">
@@ -341,6 +342,7 @@
       // Settings Upload Elements
       const uploadAvatarInput = document.getElementById("uploadAvatarInput");
       const uploadBgInput = document.getElementById("uploadBgInput");
+      const deleteBgBtn = document.getElementById("deleteBgBtn");
 
       const panels = {
         posts: document.getElementById("postsPanel"),
@@ -794,6 +796,36 @@
         }
       }
 
+      async function deleteBgImage() {
+        const currentUrl = settingBg.value.trim();
+        if (!currentUrl) return;
+        
+        // Only delete if it's a local upload
+        if (!currentUrl.startsWith("/uploads/images/")) {
+          settingBg.value = "";
+          alert("已清除背景图片链接（非本地文件，未执行物理删除）");
+          return;
+        }
+
+        if (!confirm("确定要删除当前的背景图片文件吗？此操作不可恢复。")) return;
+
+        const filename = currentUrl.split("/").pop();
+        try {
+          const resp = await fetch(`/api/v1/uploads/images/${filename}`, {
+            method: "DELETE",
+            headers: getHeaders(),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message || "删除失败");
+          
+          settingBg.value = "";
+          alert("背景图片已删除");
+        } catch (err) {
+          alert(`删除失败: ${err.message}`);
+        }
+      }
+
       async function uploadCreateImages() {
         if (!createImageUploadInput.files || createImageUploadInput.files.length === 0) {
           createImageUploadStatus.textContent = "请先选择图片";
@@ -941,6 +973,7 @@
       
       uploadAvatarInput.addEventListener("change", () => uploadFile(uploadAvatarInput, settingAvatar));
       uploadBgInput.addEventListener("change", () => uploadFile(uploadBgInput, settingBg));
+      deleteBgBtn.addEventListener("click", deleteBgImage);
 
       setActiveTab("posts");
       refreshActive();
