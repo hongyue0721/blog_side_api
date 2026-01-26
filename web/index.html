@@ -206,10 +206,6 @@
             <textarea id="editContent" rows="8"></textarea>
           </div>
           <div class="form-row">
-            <label><input class="edit-toggle" data-field="author" type="checkbox" /> 作者</label>
-            <input id="editAuthor" type="text" />
-          </div>
-          <div class="form-row">
             <label><input class="edit-toggle" data-field="images" type="checkbox" /> 图片（每行一个 URL）</label>
             <textarea id="editImages" rows="4" placeholder="/uploads/images/xxx.png"></textarea>
           </div>
@@ -247,7 +243,6 @@
       const editTitleInput = document.getElementById("editTitle");
       const editSummaryInput = document.getElementById("editSummary");
       const editContentInput = document.getElementById("editContent");
-      const editAuthorInput = document.getElementById("editAuthor");
       const editImagesInput = document.getElementById("editImages");
       const imageUploadInput = document.getElementById("imageUploadInput");
       const imageUploadStatus = document.getElementById("imageUploadStatus");
@@ -318,7 +313,6 @@
         editTitleInput.value = post.title || "";
         editSummaryInput.value = post.summary || "";
         editContentInput.value = post.content || "";
-        editAuthorInput.value = post.author || "";
         editImagesInput.value = (post.images || []).join("\n");
         postEditor.classList.remove("hidden");
       }
@@ -338,7 +332,6 @@
           renderTable(commentsContainer, data.data || [], [
             { title: "ID", key: "id" },
             { title: "文章", key: "post_title" },
-            { title: "访客", key: "visitor_name" },
             { title: "评论", key: "content" },
             { title: "时间", key: "created_at" },
             {
@@ -366,7 +359,6 @@
           renderTable(postsContainer, data.data || [], [
             { title: "ID", key: "id" },
             { title: "标题", key: "title" },
-            { title: "作者", key: "author" },
             { title: "时间", key: "created_at" },
             {
               title: "操作",
@@ -416,7 +408,8 @@
           currentPostId = post.id;
           currentPost = post;
           postDetail.innerHTML = `
-            <div class="meta">ID：${post.id} ｜ 作者：${post.author || ""} ｜ 时间：${post.created_at || ""}</div>
+            <div class="meta">ID：${post.id} ｜ 时间：${post.created_at || ""}</div>
+            <div class="meta"><a href="/post/${post.id}" target="_blank" rel="noopener">新窗口查看原文</a></div>
             <h3>${post.title || ""}</h3>
             <p>${post.summary || ""}</p>
             <pre style="white-space: pre-wrap;">${post.content || ""}</pre>
@@ -464,7 +457,6 @@
           if (field === "title") payload.title = editTitleInput.value.trim();
           if (field === "summary") payload.summary = editSummaryInput.value;
           if (field === "content") payload.content = editContentInput.value;
-          if (field === "author") payload.author = editAuthorInput.value.trim();
           if (field === "images") payload.images = parseImages(editImagesInput.value);
         });
 
@@ -523,12 +515,10 @@
       }
 
       async function updateComment(commentId) {
-        const visitorName = prompt("请输入新昵称（留空则不修改）");
         const content = prompt("请输入新评论内容（留空则不修改）");
-        if (visitorName === null && content === null) return;
+        if (content === null) return;
 
         const payload = {};
-        if (visitorName) payload.visitor_name = visitorName;
         if (content) payload.content = content;
         if (Object.keys(payload).length === 0) {
           setStatus("未填写任何修改内容");

@@ -180,7 +180,7 @@ server.host = "0.0.0.0"
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/v1/comments/public" \
   -H "Content-Type: application/json" \
-  -d "{\"post_id\":1,\"visitor_name\":\"访客A\",\"content\":\"这篇文章写得很好！\"}"
+  -d "{\"post_id\":1,\"content\":\"这篇文章写得很好！\"}"
 ```
 
 ### 管理端查看评论
@@ -215,7 +215,7 @@ curl -X PUT "http://127.0.0.1:8000/api/v1/posts/1" \
 curl -X POST "http://127.0.0.1:8000/api/v1/posts" \
   -H "X-ADMIN-PASSWORD: your-admin-password" \
   -H "Content-Type: application/json" \
-  -d "{\"title\":\"新文章\",\"summary\":\"摘要\",\"content\":\"正文\",\"author\":\"MaiBot\",\"images\":[\"/uploads/images/demo.jpg\"]}"
+  -d "{\"title\":\"新文章\",\"summary\":\"摘要\",\"content\":\"正文\",\"images\":[\"/uploads/images/demo.jpg\"]}"
 ```
 
 ### 管理端上传图片

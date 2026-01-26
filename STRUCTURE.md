@@ -16,7 +16,7 @@ blog_side_api/
 │   └── post.html        # 旧版详情页（当前未被路由使用，保留作参考）
 └── data/
     ├── comments.json    # 评论数据（示例）
-    ├── posts.json       # 公开博客示例数据（含图片字段）
+    ├── posts.json       # 公开博客示例数据（含图片字段，无作者）
     └── uploads/         # 管理端上传图片保存位置（可配置）
 ```
 

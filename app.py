@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 class PublicCommentPayload(BaseModel):
     post_id: int
-    visitor_name: str
     content: str
 
 
@@ -22,7 +21,6 @@ class CreatePostPayload(BaseModel):
     title: str
     summary: Optional[str] = None
     content: str
-    author: Optional[str] = None
     images: Optional[List[str]] = None
 
 
@@ -30,12 +28,10 @@ class UpdatePostPayload(BaseModel):
     title: Optional[str] = None
     summary: Optional[str] = None
     content: Optional[str] = None
-    author: Optional[str] = None
     images: Optional[List[str]] = None
 
 
 class UpdateCommentPayload(BaseModel):
-    visitor_name: Optional[str] = None
     content: Optional[str] = None
 
 
@@ -69,7 +65,6 @@ def init_sqlite(db_path: Path) -> None:
                 post_id INTEGER NOT NULL,
                 post_title TEXT,
                 post_summary TEXT,
-                visitor_name TEXT,
                 content TEXT,
                 created_at TEXT
             )
@@ -102,10 +97,10 @@ def insert_public_comment_to_sqlite(
     with sqlite3.connect(db_path) as conn:
         cursor = conn.execute(
             """
-            INSERT INTO public_comments (post_id, post_title, post_summary, visitor_name, content, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO public_comments (post_id, post_title, post_summary, content, created_at)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (payload.post_id, post_title, post_summary, payload.visitor_name, payload.content, created_at),
+            (payload.post_id, post_title, post_summary, payload.content, created_at),
         )
         conn.commit()
         comment_id = cursor.lastrowid
@@ -115,9 +110,6 @@ def insert_public_comment_to_sqlite(
 def update_comment_in_sqlite(db_path: Path, comment_id: int, payload: UpdateCommentPayload) -> Optional[Dict[str, Any]]:
     fields = []
     values: List[Any] = []
-    if payload.visitor_name is not None:
-        fields.append("visitor_name = ?")
-        values.append(payload.visitor_name)
     if payload.content is not None:
         fields.append("content = ?")
         values.append(payload.content)
@@ -232,6 +224,8 @@ def list_posts():
     if storage_type == "sqlite":
         return {"code": 0, "message": "success", "data": []}
     posts = read_json(posts_file)
+    for item in posts:
+        item.pop("author", None)
     return {"code": 0, "message": "success", "data": posts}
 
 
@@ -248,7 +242,6 @@ def create_post(payload: CreatePostPayload, x_admin_password: str | None = Heade
         "title": payload.title,
         "summary": payload.summary or payload.content[:120] + ("..." if len(payload.content) > 120 else ""),
         "content": payload.content,
-        "author": payload.author or "MaiBot",
         "images": payload.images or [],
         "created_at": _now_local_iso(),
     }
@@ -264,6 +257,7 @@ def get_post(post_id: int):
     posts = read_json(posts_file)
     for item in posts:
         if int(item.get("id", 0)) == post_id:
+            item.pop("author", None)
             return {"code": 0, "message": "success", "data": item}
     return {"code": 404, "message": "not found", "data": None}
 
@@ -283,8 +277,6 @@ def update_post(post_id: int, payload: UpdatePostPayload, x_admin_password: str 
                 item["summary"] = payload.summary
             if payload.content is not None:
                 item["content"] = payload.content
-            if payload.author is not None:
-                item["author"] = payload.author
             if payload.images is not None:
                 item["images"] = payload.images
             write_json(posts_file, posts)
@@ -310,10 +302,14 @@ def delete_post(post_id: int, x_admin_password: str | None = Header(default=None
 def list_public_comments(post_id: int):
     if storage_type == "sqlite":
         data = list_public_comments_from_sqlite(sqlite_path, post_id)
+        for item in data:
+            item.pop("visitor_name", None)
         return {"code": 0, "message": "success", "data": data}
 
     comments = read_json(comments_file)
     data = [item for item in comments if int(item.get("post_id", 0)) == post_id]
+    for item in data:
+        item.pop("visitor_name", None)
     return {"code": 0, "message": "success", "data": data}
 
 
@@ -338,7 +334,6 @@ def submit_public_comment(payload: PublicCommentPayload):
         "post_id": payload.post_id,
         "post_title": post_title,
         "post_summary": post_summary,
-        "visitor_name": payload.visitor_name,
         "content": payload.content,
         "created_at": _now_local_iso(),
     }
@@ -354,6 +349,8 @@ def list_all_comments(x_admin_password: str | None = Header(default=None)):
         data = list_all_comments_from_sqlite(sqlite_path)
     else:
         data = read_json(comments_file)
+    for item in data:
+        item.pop("visitor_name", None)
     return {"code": 0, "message": "success", "data": data}
 
 
@@ -366,16 +363,16 @@ def update_comment(
         updated = update_comment_in_sqlite(sqlite_path, comment_id, payload)
         if not updated:
             return {"code": 404, "message": "not found", "data": None}
+        updated.pop("visitor_name", None)
         return {"code": 0, "message": "success", "data": updated}
 
     comments = read_json(comments_file)
     for item in comments:
         if int(item.get("id", 0)) == comment_id:
-            if payload.visitor_name is not None:
-                item["visitor_name"] = payload.visitor_name
             if payload.content is not None:
                 item["content"] = payload.content
             item["updated_at"] = _now_local_iso()
+            item.pop("visitor_name", None)
             write_json(comments_file, comments)
             return {"code": 0, "message": "success", "data": item}
     return {"code": 404, "message": "not found", "data": None}
