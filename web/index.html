@@ -180,6 +180,7 @@
         <div class="toolbar">
           <input id="adminPasswordInput" type="password" placeholder="管理端密码（config.toml）" />
           <button id="refreshBtn">刷新当前列表</button>
+          <button id="newPostBtn">新建文章</button>
           <span id="status" class="muted"></span>
         </div>
       </section>
@@ -187,6 +188,36 @@
       <section id="postsPanel" class="panel">
         <h2>博客管理</h2>
         <div id="postsContainer" class="empty">暂无数据</div>
+      </section>
+
+      <section id="createPostPanel" class="panel hidden">
+        <h2>新建文章</h2>
+        <div class="form-row">
+          <label>标题</label>
+          <input id="createTitle" type="text" placeholder="文章标题" />
+        </div>
+        <div class="form-row">
+          <label>摘要 (可选)</label>
+          <textarea id="createSummary" rows="3" placeholder="如果不填，将自动截取正文前120字"></textarea>
+        </div>
+        <div class="form-row">
+          <label>正文</label>
+          <textarea id="createContent" rows="10" placeholder="支持 Markdown"></textarea>
+        </div>
+        <div class="form-row">
+          <label>图片 (每行一个 URL)</label>
+          <textarea id="createImages" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <label>上传图片</label>
+          <input id="createImageUploadInput" type="file" accept="image/*" multiple />
+          <button id="createUploadImageBtn" type="button">上传并追加地址</button>
+          <div id="createImageUploadStatus" class="muted"></div>
+        </div>
+        <div class="form-row">
+          <button id="submitNewPostBtn">发布文章</button>
+          <button id="cancelNewPostBtn" class="secondary">取消</button>
+        </div>
       </section>
 
       <section id="postDetailPanel" class="panel hidden">
@@ -251,11 +282,19 @@
         </div>
         <div class="form-row">
           <label>头像 URL</label>
-          <input id="settingAvatar" type="text" placeholder="https://..." />
+          <div style="display:flex; gap:8px;">
+             <input id="settingAvatar" type="text" placeholder="https://..." style="flex:1;" />
+             <input id="uploadAvatarInput" type="file" accept="image/*" style="display:none" />
+             <button type="button" onclick="document.getElementById('uploadAvatarInput').click()">上传</button>
+          </div>
         </div>
         <div class="form-row">
           <label>背景图片 URL</label>
-          <input id="settingBg" type="text" placeholder="https://..." />
+          <div style="display:flex; gap:8px;">
+             <input id="settingBg" type="text" placeholder="https://..." style="flex:1;" />
+             <input id="uploadBgInput" type="file" accept="image/*" style="display:none" />
+             <button type="button" onclick="document.getElementById('uploadBgInput').click()">上传</button>
+          </div>
         </div>
         <div class="form-row">
           <label>主题色</label>
@@ -285,6 +324,24 @@
       const settingBg = document.getElementById("settingBg");
       const settingColor = document.getElementById("settingColor");
       const tabs = document.querySelectorAll(".tab");
+      
+      // Create Post Elements
+      const createPostPanel = document.getElementById("createPostPanel");
+      const createTitle = document.getElementById("createTitle");
+      const createSummary = document.getElementById("createSummary");
+      const createContent = document.getElementById("createContent");
+      const createImages = document.getElementById("createImages");
+      const createImageUploadInput = document.getElementById("createImageUploadInput");
+      const createUploadImageBtn = document.getElementById("createUploadImageBtn");
+      const createImageUploadStatus = document.getElementById("createImageUploadStatus");
+      const submitNewPostBtn = document.getElementById("submitNewPostBtn");
+      const cancelNewPostBtn = document.getElementById("cancelNewPostBtn");
+      const newPostBtn = document.getElementById("newPostBtn");
+
+      // Settings Upload Elements
+      const uploadAvatarInput = document.getElementById("uploadAvatarInput");
+      const uploadBgInput = document.getElementById("uploadBgInput");
+
       const panels = {
         posts: document.getElementById("postsPanel"),
         comments: document.getElementById("commentsPanel"),
@@ -325,6 +382,9 @@
         Object.entries(panels).forEach(([key, panel]) => {
           panel.classList.toggle("hidden", key !== tabName);
         });
+        // Hide auxiliary panels when switching tabs
+        document.getElementById("postDetailPanel").classList.add("hidden");
+        document.getElementById("createPostPanel").classList.add("hidden");
       }
 
       function renderTable(container, rows, columns) {
@@ -471,6 +531,8 @@
           `;
           fillEditor(post);
           clearEditSelection();
+          document.getElementById("postDetailPanel").classList.remove("hidden");
+          document.getElementById("postDetailPanel").scrollIntoView({ behavior: "smooth", block: "start" });
           setStatus("文章详情加载完成");
         } catch (err) {
           postDetail.innerHTML = `<div class='empty'>加载失败：${err.message}</div>`;
@@ -704,6 +766,114 @@
         }
       }
 
+      // Generic Upload Helper
+      async function uploadFile(fileInput, targetInput, statusEl) {
+        if (!fileInput.files || fileInput.files.length === 0) return;
+        if (statusEl) statusEl.textContent = "正在上传...";
+        
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const resp = await fetch("/api/v1/uploads/image", {
+            method: "POST",
+            headers: getHeaders(),
+            body: formData,
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message || "上传失败");
+          
+          targetInput.value = data.data.url;
+          if (statusEl) statusEl.textContent = "上传成功";
+          else alert("上传成功");
+        } catch (err) {
+          if (statusEl) statusEl.textContent = `上传失败: ${err.message}`;
+          else alert(`上传失败: ${err.message}`);
+        }
+      }
+
+      async function uploadCreateImages() {
+        if (!createImageUploadInput.files || createImageUploadInput.files.length === 0) {
+          createImageUploadStatus.textContent = "请先选择图片";
+          return;
+        }
+        createImageUploadStatus.textContent = "正在上传...";
+        const urls = [];
+        for (const file of createImageUploadInput.files) {
+          const formData = new FormData();
+          formData.append("file", file);
+          try {
+            const resp = await fetch("/api/v1/uploads/image", {
+              method: "POST",
+              headers: getHeaders(),
+              body: formData,
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            if (data.code !== 0) throw new Error(data.message);
+            urls.push(data.data.url);
+          } catch (err) {
+            createImageUploadStatus.textContent = `部分上传失败: ${err.message}`;
+          }
+        }
+        const existing = parseImages(createImages.value);
+        createImages.value = [...existing, ...urls].join("\n");
+        createImageUploadStatus.textContent = "上传完成";
+      }
+
+      async function submitNewPost() {
+        const title = createTitle.value.trim();
+        const content = createContent.value.trim();
+        if (!title || !content) {
+          alert("标题和正文不能为空");
+          return;
+        }
+        
+        setStatus("正在发布...");
+        const payload = {
+          title,
+          content,
+          summary: createSummary.value.trim() || null,
+          images: parseImages(createImages.value)
+        };
+
+        try {
+          const resp = await fetch("/api/v1/posts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...getHeaders() },
+            body: JSON.stringify(payload),
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const data = await resp.json();
+          if (data.code !== 0) throw new Error(data.message);
+          
+          alert("发布成功！");
+          createTitle.value = "";
+          createSummary.value = "";
+          createContent.value = "";
+          createImages.value = "";
+          createImageUploadInput.value = "";
+          createPostPanel.classList.add("hidden");
+          postsContainer.classList.remove("hidden");
+          await loadPosts();
+        } catch (err) {
+          setStatus(`发布失败: ${err.message}`);
+          alert(`发布失败: ${err.message}`);
+        }
+      }
+
+      function showCreatePanel() {
+        createPostPanel.classList.remove("hidden");
+        document.getElementById("postDetailPanel").classList.add("hidden");
+        createPostPanel.scrollIntoView({ behavior: "smooth" });
+      }
+
+      function hideCreatePanel() {
+        createPostPanel.classList.add("hidden");
+      }
+
       async function saveSettings() {
         setStatus("正在保存设置...");
         const payload = {
@@ -762,6 +932,15 @@
       saveCommentBtn.addEventListener("click", updateComment);
       cancelCommentBtn.addEventListener("click", closeCommentEditor);
       saveSettingsBtn.addEventListener("click", saveSettings);
+      
+      // New Event Listeners
+      newPostBtn.addEventListener("click", showCreatePanel);
+      cancelNewPostBtn.addEventListener("click", hideCreatePanel);
+      submitNewPostBtn.addEventListener("click", submitNewPost);
+      createUploadImageBtn.addEventListener("click", uploadCreateImages);
+      
+      uploadAvatarInput.addEventListener("change", () => uploadFile(uploadAvatarInput, settingAvatar));
+      uploadBgInput.addEventListener("change", () => uploadFile(uploadBgInput, settingBg));
 
       setActiveTab("posts");
       refreshActive();
