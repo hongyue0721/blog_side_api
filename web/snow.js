@@ -25,6 +25,12 @@ class SnowEffect {
             
             window.addEventListener('resize', () => this.resize());
             this.resize();
+        } else {
+            // If canvas exists, ensure we have the context and it's visible
+            this.canvas = document.getElementById('snow-canvas');
+            this.ctx = this.canvas.getContext('2d');
+            this.canvas.style.display = 'block';
+            this.resize();
         }
     }
 
@@ -101,6 +107,9 @@ class SnowEffect {
         }
         if (this.ctx) {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+        if (this.canvas) {
+            this.canvas.style.display = 'none';
         }
     }
 }
