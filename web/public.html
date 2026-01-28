@@ -244,11 +244,16 @@
         -webkit-backdrop-filter: blur(4px);
       }
       
-      /* Theme Toggle */
-      .theme-toggle {
+      /* Controls (Theme & Snow) */
+      .controls {
         position: fixed;
         top: 24px;
         right: 24px;
+        display: flex;
+        gap: 12px;
+        z-index: 100;
+      }
+      .control-btn {
         width: 40px;
         height: 40px;
         border-radius: 50%;
@@ -258,10 +263,13 @@
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        z-index: 100;
         backdrop-filter: blur(var(--backdrop-blur));
         box-shadow: 0 2px 4px var(--shadow);
         font-size: 20px;
+        padding: 0; /* Reset padding */
+      }
+      .control-btn:hover {
+        transform: scale(1.05);
       }
       .modal-content {
         width: 90%;
@@ -352,7 +360,10 @@
   </head>
   <body>
     <div id="heroBg" class="hero-bg"></div>
-    <button id="themeToggle" class="theme-toggle" title="切换深色模式">🌓</button>
+    <div class="controls">
+      <button id="snowToggle" class="control-btn" title="切换雪花特效">❄️</button>
+      <button id="themeToggle" class="control-btn" title="切换深色模式">🌓</button>
+    </div>
     
     <div class="container">
       <!-- Left Sidebar: Profile -->
@@ -418,6 +429,8 @@
       </div>
     </div>
 
+    <script src="/web/snow.js"></script>
+    <script src="/web/music.js"></script>
     <script>
       // State
       let currentPage = 1;
@@ -495,6 +508,37 @@
         localStorage.setItem("theme", isDark ? "dark" : "light");
       });
 
+      // Snow Management
+      const snowToggle = document.getElementById("snowToggle");
+      let isSnowEnabled = false;
+
+      function initSnow(defaultEnabled) {
+        const saved = localStorage.getItem("snow");
+        // If user has a preference, use it. Otherwise use admin default.
+        if (saved !== null) {
+          isSnowEnabled = saved === "true";
+        } else {
+          isSnowEnabled = !!defaultEnabled;
+        }
+        applySnowState();
+      }
+
+      function applySnowState() {
+        if (isSnowEnabled) {
+          window.snowEffect && window.snowEffect.start();
+          snowToggle.style.opacity = "1";
+        } else {
+          window.snowEffect && window.snowEffect.stop();
+          snowToggle.style.opacity = "0.5";
+        }
+      }
+
+      snowToggle.addEventListener("click", () => {
+        isSnowEnabled = !isSnowEnabled;
+        localStorage.setItem("snow", isSnowEnabled);
+        applySnowState();
+      });
+
       function renderImages(images) {
         if (!images || images.length === 0) return "";
         const items = images
@@ -531,11 +575,6 @@
             try {
               const color = await extractDominantColor(data.background_image);
               document.documentElement.style.setProperty('--primary', color);
-              // Set body background to a very light/dark version of primary color for "fill" effect
-              // But user asked for "background color based on image main tone"
-              // We can set --bg to a mixed color or just keep it simple.
-              // For now, let's stick to the requested "pull down fills with background color"
-              // which is handled by the body background being visible behind the fixed hero.
             } catch (e) {
               console.log("Could not extract color from image, using default or config");
               if (data.theme_color) {
@@ -545,6 +584,15 @@
           } else if (data.theme_color) {
             document.documentElement.style.setProperty('--primary', data.theme_color);
           }
+
+          // Initialize Snow Effect
+          initSnow(data.enable_snow);
+
+          // Initialize Music Player
+          if (data.music_url && window.musicPlayer) {
+            window.musicPlayer.init(data.music_url);
+          }
+
         } catch (err) {
           console.error("Failed to load settings", err);
         }

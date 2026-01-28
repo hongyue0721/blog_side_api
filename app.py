@@ -41,6 +41,8 @@ class SettingsPayload(BaseModel):
     intro: Optional[str] = None
     background_image: Optional[str] = None
     theme_color: Optional[str] = None
+    enable_snow: Optional[bool] = None
+    music_url: Optional[str] = None
 
 
 def load_config() -> Dict[str, Any]:
@@ -156,9 +158,11 @@ comments_file = Path(data_config.get("comments_file") or data_config.get("pendin
 posts_file = Path(data_config.get("posts_file", "data/posts.json"))
 settings_file = Path(data_config.get("settings_file", "data/settings.json"))
 images_dir = Path(data_config.get("images_dir", "data/uploads"))
+music_dir = Path(data_config.get("music_dir", "data/uploads/music"))
 
 web_root = Path(__file__).parent / "web"
 uploads_images_dir = images_dir
+uploads_music_dir = music_dir
 
 if storage_type == "sqlite":
     init_sqlite(sqlite_path)
@@ -169,6 +173,7 @@ else:
 
 images_dir.mkdir(parents=True, exist_ok=True)
 uploads_images_dir.mkdir(parents=True, exist_ok=True)
+uploads_music_dir.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Blog Comment API Sample", version="0.2.0")
 
@@ -205,6 +210,14 @@ def serve_upload_image(image_name: str):
     if not image_path.exists():
         raise HTTPException(status_code=404, detail="image not found")
     return FileResponse(image_path)
+
+
+@app.get("/uploads/music/{music_name}")
+def serve_upload_music(music_name: str):
+    music_path = uploads_music_dir / music_name
+    if not music_path.exists():
+        raise HTTPException(status_code=404, detail="music not found")
+    return FileResponse(music_path)
 
 
 @app.post("/api/v1/uploads/image")
@@ -247,6 +260,48 @@ def delete_image(image_name: str, x_admin_password: str | None = Header(default=
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/v1/uploads/music")
+def upload_music(file: UploadFile = File(...), x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="filename required")
+
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in [".mp3", ".wav", ".ogg", ".m4a", ".flac"]:
+         raise HTTPException(status_code=400, detail="Only audio files allowed (mp3, wav, ogg, m4a, flac)")
+
+    safe_name = f"{datetime.now().strftime('%Y%m%d%H%M%S%f')}{suffix}"
+    target_path = uploads_music_dir / safe_name
+    with target_path.open("wb") as target:
+        target.write(file.file.read())
+
+    return {
+        "code": 0,
+        "message": "success",
+        "data": {
+            "filename": safe_name,
+            "url": f"/uploads/music/{safe_name}",
+        },
+    }
+
+
+@app.delete("/api/v1/uploads/music/{music_name}")
+def delete_music(music_name: str, x_admin_password: str | None = Header(default=None)):
+    require_admin_password(x_admin_password)
+    if ".." in music_name or "/" in music_name or "\\" in music_name:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    target_path = uploads_music_dir / music_name
+    if not target_path.exists():
+        return {"code": 404, "message": "not found", "data": None}
+    
+    try:
+        target_path.unlink()
+        return {"code": 0, "message": "success", "data": {"filename": music_name}}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/v1/settings")
 def get_settings():
     return {"code": 0, "message": "success", "data": read_json(settings_file)}
@@ -266,6 +321,10 @@ def update_settings(payload: SettingsPayload, x_admin_password: str | None = Hea
         current["background_image"] = payload.background_image
     if payload.theme_color is not None:
         current["theme_color"] = payload.theme_color
+    if payload.enable_snow is not None:
+        current["enable_snow"] = payload.enable_snow
+    if payload.music_url is not None:
+        current["music_url"] = payload.music_url
     write_json(settings_file, current)
     return {"code": 0, "message": "success", "data": current}
 
