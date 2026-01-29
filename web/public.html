@@ -41,6 +41,7 @@
         background-position: center;
         z-index: -1;
         transition: filter 0.3s;
+        pointer-events: none;
       }
       .hero-bg::after {
         content: '';
@@ -303,6 +304,8 @@
         justify-content: center;
         gap: 8px;
         margin-top: 24px;
+        position: relative;
+        z-index: 10;
       }
       .page-btn {
         padding: 8px 12px;
@@ -699,7 +702,10 @@
       }
 
       async function submitComment() {
-        if (!currentCommentPostId) return;
+        // Use currentCommentPostId if available (for modal), otherwise try URL (fallback)
+        const postId = currentCommentPostId || getPostIdFromUrl();
+        if (!postId) return;
+
         const content = els.commentContent.value.trim();
         
         if (!content) return;
@@ -711,13 +717,13 @@
           const resp = await fetch("/api/v1/comments/public", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ post_id: Number(currentCommentPostId), content })
+            body: JSON.stringify({ post_id: Number(postId), content })
           });
           
           if (resp.ok) {
             els.commentContent.value = "";
             els.commentStatus.textContent = "评论成功！";
-            loadInlineComments(currentCommentPostId);
+            loadInlineComments(postId);
             setTimeout(() => {
                 els.commentStatus.textContent = "";
                 els.commentModal.classList.add("hidden");
