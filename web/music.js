@@ -7,6 +7,7 @@ class MusicPlayer {
         this.toggleBtn = null;
         this.volumeContainer = null;
         this.volumeSlider = null;
+        this.isExpanded = false;
     }
 
     init(musicUrl) {
@@ -38,12 +39,15 @@ class MusicPlayer {
     createUI() {
         if (document.getElementById('music-player-container')) return;
 
+        // Check for touch capability (mobile)
+        const isTouch = window.matchMedia('(hover: none)').matches;
+
         // Main Container
         this.container = document.createElement('div');
         this.container.id = 'music-player-container';
         Object.assign(this.container.style, {
             position: 'fixed',
-            top: '80px', // Below theme/snow toggles
+            top: '80px',
             right: '24px',
             zIndex: '9999',
             background: 'var(--card, rgba(255, 255, 255, 0.8))',
@@ -72,7 +76,8 @@ class MusicPlayer {
             cursor: 'pointer',
             fontSize: '18px',
             flexShrink: 0,
-            userSelect: 'none'
+            userSelect: 'none',
+            webkitTapHighlightColor: 'transparent' // Remove mobile tap highlight
         });
         
         // Volume Control Container
@@ -106,35 +111,57 @@ class MusicPlayer {
         this.container.appendChild(this.volumeContainer);
         document.body.appendChild(this.container);
 
-        // Event Listeners
-        
-        // 1. Toggle Play/Pause
-        this.toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.toggle();
-        });
+        // --- Interaction Logic ---
 
-        // 2. Expand/Collapse (Hover for Desktop, Click for Mobile)
         const expand = () => {
             this.container.style.width = '150px';
             this.volumeContainer.style.width = '100px';
             this.volumeContainer.style.opacity = '1';
+            this.isExpanded = true;
         };
-        
+
         const collapse = () => {
             this.container.style.width = '40px';
             this.volumeContainer.style.width = '0';
             this.volumeContainer.style.opacity = '0';
+            this.isExpanded = false;
         };
 
-        this.container.addEventListener('mouseenter', expand);
-        this.container.addEventListener('mouseleave', collapse);
+        // 1. Container Click: Prevent bubbling to document (which collapses)
+        this.container.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
 
-        // 3. Volume Change
+        // 2. Toggle Button Click
+        this.toggleBtn.addEventListener('click', (e) => {
+            // On mobile: First tap expands, second tap toggles
+            if (isTouch) {
+                if (!this.isExpanded) {
+                    expand();
+                    return;
+                }
+            }
+            // On desktop (or mobile if already expanded): Toggle Play/Pause
+            this.toggle();
+        });
+
+        // 3. Desktop Hover Interactions
+        if (!isTouch) {
+            this.container.addEventListener('mouseenter', expand);
+            this.container.addEventListener('mouseleave', collapse);
+        }
+
+        // 4. Volume Slider
         this.volumeSlider.addEventListener('input', (e) => {
             this.audio.volume = e.target.value;
         });
-        this.volumeSlider.addEventListener('click', (e) => e.stopPropagation());
+
+        // 5. Global Click (Collapse on outside click for mobile)
+        document.addEventListener('click', () => {
+            if (this.isExpanded) {
+                collapse();
+            }
+        });
 
         this.updateIcon();
     }

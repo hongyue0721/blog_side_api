@@ -179,15 +179,16 @@
       
       /* Post Detail (Inline) */
       .post-detail {
-        margin-top: 20px;
-        padding-top: 20px;
-        border-top: 1px solid var(--border);
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
         animation: slideDown 0.3s ease-out;
       }
       .post-content {
         line-height: 1.8;
         font-size: 16px;
         margin-bottom: 24px;
+        color: var(--text);
       }
       .post-content pre {
         background: rgba(0, 0, 0, 0.05);
@@ -626,6 +627,7 @@
       async function togglePost(postId, toggleOff = true) {
         const detailEl = document.getElementById(`post-detail-${postId}`);
         const readMoreBtn = document.querySelector(`#post-card-${postId} .read-more`);
+        const summaryEl = document.querySelector(`#post-card-${postId} .post-summary`);
         
         if (!detailEl) return;
 
@@ -635,6 +637,7 @@
             // Collapse
             detailEl.classList.add("hidden");
             readMoreBtn.classList.remove("hidden");
+            if (summaryEl) summaryEl.classList.remove("hidden");
             history.pushState(null, "", "/");
             return;
         }
@@ -645,9 +648,11 @@
             if (el.id !== `post-detail-${postId}`) el.classList.add('hidden');
         });
         document.querySelectorAll('.read-more').forEach(el => el.classList.remove('hidden'));
+        document.querySelectorAll('.post-summary').forEach(el => el.classList.remove('hidden'));
 
         detailEl.classList.remove("hidden");
         readMoreBtn.classList.add("hidden");
+        if (summaryEl) summaryEl.classList.add("hidden");
         
         // Update URL
         history.pushState(null, "", `/post/${postId}`);
@@ -795,6 +800,7 @@
                 // Collapse all
                 document.querySelectorAll('.post-detail').forEach(el => el.classList.add('hidden'));
                 document.querySelectorAll('.read-more').forEach(el => el.classList.remove('hidden'));
+                document.querySelectorAll('.post-summary').forEach(el => el.classList.remove('hidden'));
             }
         }
       }
