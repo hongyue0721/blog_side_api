@@ -3,9 +3,10 @@ class MusicPlayer {
         this.audio = new Audio();
         this.isPlaying = false;
         this.playlist = [];
-        this.currentIndex = 0;
         this.container = null;
         this.toggleBtn = null;
+        this.volumeContainer = null;
+        this.volumeSlider = null;
     }
 
     init(musicUrl) {
@@ -14,20 +15,18 @@ class MusicPlayer {
         this.playlist = [musicUrl];
         this.audio.src = musicUrl;
         this.audio.loop = true;
+        this.audio.volume = 0.5;
         
         this.createUI();
         
-        // Auto play might be blocked by browser policy
-        // We'll try to play on first interaction if autoplay fails
+        // Try autoplay
         this.audio.play().then(() => {
             this.isPlaying = true;
             this.updateIcon();
         }).catch(() => {
-            console.log("Autoplay blocked, waiting for interaction");
+            console.log("Autoplay blocked");
             this.isPlaying = false;
             this.updateIcon();
-            
-            // Add one-time click listener to document to start playing
             const startPlay = () => {
                 this.play();
                 document.removeEventListener('click', startPlay);
@@ -39,71 +38,130 @@ class MusicPlayer {
     createUI() {
         if (document.getElementById('music-player-container')) return;
 
+        // Main Container
         this.container = document.createElement('div');
         this.container.id = 'music-player-container';
-        this.container.style.position = 'fixed';
-        this.container.style.bottom = '20px';
-        this.container.style.right = '20px';
-        this.container.style.zIndex = '10000';
-        this.container.style.background = 'rgba(255, 255, 255, 0.8)';
-        this.container.style.backdropFilter = 'blur(10px)';
-        this.container.style.borderRadius = '50%';
-        this.container.style.width = '40px';
-        this.container.style.height = '40px';
-        this.container.style.display = 'flex';
-        this.container.style.alignItems = 'center';
-        this.container.style.justifyContent = 'center';
-        this.container.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-        this.container.style.cursor = 'pointer';
-        this.container.style.transition = 'transform 0.3s ease';
+        Object.assign(this.container.style, {
+            position: 'fixed',
+            top: '80px', // Below theme/snow toggles
+            right: '24px',
+            zIndex: '9999',
+            background: 'var(--card, rgba(255, 255, 255, 0.8))',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 4px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            transition: 'width 0.3s ease, box-shadow 0.3s ease',
+            overflow: 'hidden',
+            width: '40px', // Collapsed state
+            border: '1px solid var(--border, rgba(229, 231, 235, 0.5))'
+        });
 
+        // Play/Pause Button (Icon)
         this.toggleBtn = document.createElement('div');
-        this.toggleBtn.style.fontSize = '20px';
+        Object.assign(this.toggleBtn.style, {
+            width: '32px',
+            height: '32px',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            fontSize: '18px',
+            flexShrink: 0,
+            userSelect: 'none'
+        });
         
+        // Volume Control Container
+        this.volumeContainer = document.createElement('div');
+        Object.assign(this.volumeContainer.style, {
+            width: '0',
+            opacity: '0',
+            overflow: 'hidden',
+            transition: 'width 0.3s ease, opacity 0.3s ease',
+            display: 'flex',
+            alignItems: 'center',
+            marginLeft: '0'
+        });
+
+        // Slider
+        this.volumeSlider = document.createElement('input');
+        this.volumeSlider.type = 'range';
+        this.volumeSlider.min = 0;
+        this.volumeSlider.max = 1;
+        this.volumeSlider.step = 0.05;
+        this.volumeSlider.value = this.audio.volume;
+        Object.assign(this.volumeSlider.style, {
+            width: '80px',
+            margin: '0 10px',
+            cursor: 'pointer',
+            height: '4px'
+        });
+
+        this.volumeContainer.appendChild(this.volumeSlider);
         this.container.appendChild(this.toggleBtn);
+        this.container.appendChild(this.volumeContainer);
         document.body.appendChild(this.container);
 
-        this.container.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent triggering document click
+        // Event Listeners
+        
+        // 1. Toggle Play/Pause
+        this.toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             this.toggle();
         });
+
+        // 2. Expand/Collapse (Hover for Desktop, Click for Mobile)
+        const expand = () => {
+            this.container.style.width = '150px';
+            this.volumeContainer.style.width = '100px';
+            this.volumeContainer.style.opacity = '1';
+        };
         
-        this.container.addEventListener('mouseenter', () => {
-            this.container.style.transform = 'scale(1.1)';
+        const collapse = () => {
+            this.container.style.width = '40px';
+            this.volumeContainer.style.width = '0';
+            this.volumeContainer.style.opacity = '0';
+        };
+
+        this.container.addEventListener('mouseenter', expand);
+        this.container.addEventListener('mouseleave', collapse);
+
+        // 3. Volume Change
+        this.volumeSlider.addEventListener('input', (e) => {
+            this.audio.volume = e.target.value;
         });
-        
-        this.container.addEventListener('mouseleave', () => {
-            this.container.style.transform = 'scale(1)';
-        });
+        this.volumeSlider.addEventListener('click', (e) => e.stopPropagation());
 
         this.updateIcon();
     }
 
     updateIcon() {
         if (this.toggleBtn) {
-            this.toggleBtn.innerHTML = this.isPlaying ? '🔊' : '🔇';
-            // Add animation class if playing
+            this.toggleBtn.innerHTML = this.isPlaying ? '🎵' : '🔇';
             if (this.isPlaying) {
-                this.container.style.animation = 'pulse 2s infinite';
+                this.container.style.boxShadow = '0 0 15px var(--primary, #2563eb)';
+                this.container.style.borderColor = 'var(--primary, #2563eb)';
             } else {
-                this.container.style.animation = 'none';
+                this.container.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
+                this.container.style.borderColor = 'var(--border, rgba(229, 231, 235, 0.5))';
             }
         }
     }
 
     toggle() {
-        if (this.isPlaying) {
-            this.pause();
-        } else {
-            this.play();
-        }
+        if (this.isPlaying) this.pause();
+        else this.play();
     }
 
     play() {
         this.audio.play().then(() => {
             this.isPlaying = true;
             this.updateIcon();
-        }).catch(e => console.error("Play failed:", e));
+        }).catch(e => console.error(e));
     }
 
     pause() {
@@ -112,16 +170,5 @@ class MusicPlayer {
         this.updateIcon();
     }
 }
-
-// Add CSS for pulse animation
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
-        70% { box-shadow: 0 0 0 10px rgba(0, 0, 0, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
-    }
-`;
-document.head.appendChild(style);
 
 window.musicPlayer = new MusicPlayer();
