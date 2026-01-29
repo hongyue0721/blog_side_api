@@ -176,38 +176,17 @@
         font-size: 14px;
       }
       
-      /* Detail View */
-      .detail-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 24px;
-        align-items: start;
-      }
-      .detail-left {
-        padding-left: 20px; /* Space for date dot */
-      }
-      @media (max-width: 768px) {
-        .detail-left {
-          padding-left: 0; /* Reset on mobile if needed, or keep for consistency */
-        }
-        .timeline-date {
-           margin-left: 20px; /* Ensure dot is visible on mobile if padding removed */
-        }
-      }
-      .back-link {
-        display: inline-block;
-        margin-bottom: 16px;
-        color: var(--muted);
-        text-decoration: none;
-        font-size: 14px;
-      }
-      .back-link:hover {
-        color: var(--primary);
+      /* Post Detail (Inline) */
+      .post-detail {
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+        animation: slideDown 0.3s ease-out;
       }
       .post-content {
         line-height: 1.8;
-        font-size: 18px;
-        padding: 10px 0;
+        font-size: 16px;
+        margin-bottom: 24px;
       }
       .post-content pre {
         background: rgba(0, 0, 0, 0.05);
@@ -217,11 +196,19 @@
       }
       
       /* Comments */
+      .comment-section {
+        background: rgba(0,0,0,0.02);
+        border-radius: 8px;
+        padding: 16px;
+      }
       .comment-list {
         display: grid;
         gap: 16px;
-        max-height: 60vh;
-        overflow-y: auto;
+        margin-top: 16px;
+      }
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
       }
       .comment-item {
         border-bottom: 1px solid var(--border);
@@ -373,43 +360,13 @@
         <div id="profileIntro" class="profile-intro"></div>
       </aside>
 
-      <!-- Right Content: Posts or Detail -->
+      <!-- Right Content: Posts List -->
       <main class="main-content">
-        <!-- List View -->
-        <div id="listView">
-          <div id="postList"></div>
-          <div id="pagination" class="pagination hidden">
-            <button id="prevPage" class="page-btn">上一页</button>
-            <span id="pageInfo" style="display: flex; align-items: center;">1 / 1</span>
-            <button id="nextPage" class="page-btn">下一页</button>
-          </div>
-        </div>
-
-        <!-- Detail View -->
-        <div id="detailView" class="hidden">
-          <a href="/" class="back-link">← 返回列表</a>
-          
-          <div class="detail-grid">
-            <!-- Post Content -->
-            <div class="detail-left">
-              <div id="detailDate" class="timeline-date"></div>
-              <article class="glass-panel" style="animation: fadeIn 0.5s ease-out;">
-                <h1 id="detailTitle" style="margin: 0 0 20px 0; font-size: 28px;"></h1>
-                <div id="detailContent" class="post-content"></div>
-              </article>
-            </div>
-
-            <!-- Comments (Below Post) -->
-            <div class="detail-right">
-              <div class="glass-panel" style="animation: slideUp 0.5s ease-out;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
-                  <h3 style="margin: 0; font-size: 18px;">评论</h3>
-                  <button id="openCommentBtn" style="padding: 6px 12px; font-size: 13px;">写评论</button>
-                </div>
-                <div id="commentList" class="comment-list"></div>
-              </div>
-            </div>
-          </div>
+        <div id="postList"></div>
+        <div id="pagination" class="pagination hidden">
+          <button id="prevPage" class="page-btn">上一页</button>
+          <span id="pageInfo" style="display: flex; align-items: center;">1 / 1</span>
+          <button id="nextPage" class="page-btn">下一页</button>
         </div>
       </main>
     </div>
@@ -436,28 +393,22 @@
       let currentPage = 1;
       const pageSize = 10;
       let totalPosts = 0;
+      let currentCommentPostId = null; // Track which post is being commented on
 
       // Elements
       const els = {
         avatar: document.getElementById("profileAvatar"),
         name: document.getElementById("profileName"),
         intro: document.getElementById("profileIntro"),
-        listView: document.getElementById("listView"),
         postList: document.getElementById("postList"),
         pagination: document.getElementById("pagination"),
         prevPage: document.getElementById("prevPage"),
         nextPage: document.getElementById("nextPage"),
         pageInfo: document.getElementById("pageInfo"),
-        detailView: document.getElementById("detailView"),
-        detailTitle: document.getElementById("detailTitle"),
-        detailDate: document.getElementById("detailDate"),
-        detailContent: document.getElementById("detailContent"),
-        commentList: document.getElementById("commentList"),
         commentContent: document.getElementById("commentContent"),
         commentStatus: document.getElementById("commentStatus"),
         submitCommentBtn: document.getElementById("submitCommentBtn"),
         commentModal: document.getElementById("commentModal"),
-        openCommentBtn: document.getElementById("openCommentBtn"),
         closeCommentBtn: document.getElementById("closeCommentBtn"),
       };
 
@@ -599,7 +550,10 @@
       }
 
       async function loadPosts(page) {
-        els.postList.innerHTML = '<div class="glass-panel" style="text-align:center; color:var(--muted);">加载中...</div>';
+        // Only show loading if list is empty
+        if (!els.postList.children.length) {
+            els.postList.innerHTML = '<div class="glass-panel" style="text-align:center; color:var(--muted);">加载中...</div>';
+        }
         try {
           const resp = await fetch(`/api/v1/posts?page=${page}&size=${pageSize}`);
           const { data, total } = await resp.json();
@@ -607,6 +561,12 @@
           totalPosts = total || 0;
           renderPostList(data || []);
           updatePagination();
+          
+          // Check if we need to expand a post based on URL
+          const postId = getPostIdFromUrl();
+          if (postId) {
+            togglePost(postId, false); // false = don't toggle off if already open
+          }
         } catch (err) {
           els.postList.innerHTML = '<div class="glass-panel" style="text-align:center; color:red;">加载失败</div>';
         }
@@ -621,10 +581,27 @@
         els.postList.innerHTML = posts.map(post => `
           <div class="timeline-item">
             <div class="timeline-date">${formatDate(post.created_at)}</div>
-            <article class="glass-panel post-card">
-              <h3 class="post-title"><a href="/post/${post.id}">${post.title}</a></h3>
+            <article class="glass-panel post-card" id="post-card-${post.id}">
+              <h3 class="post-title">
+                <a href="/post/${post.id}" onclick="event.preventDefault(); togglePost(${post.id});">${post.title}</a>
+              </h3>
               <p class="post-summary">${post.summary || ""}</p>
-              <a href="/post/${post.id}" class="read-more">阅读全文 →</a>
+              
+              <div id="post-detail-${post.id}" class="post-detail hidden">
+                 <div id="post-content-${post.id}" class="post-content">加载中...</div>
+                 <div class="comment-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h4 style="margin:0;">评论</h4>
+                        <button onclick="openCommentModal(${post.id})" style="padding: 4px 10px; font-size: 12px;">写评论</button>
+                    </div>
+                    <div id="post-comments-${post.id}" class="comment-list"></div>
+                 </div>
+                 <div style="text-align:center; margin-top:20px;">
+                    <button onclick="togglePost(${post.id})" style="background:transparent; border:1px solid var(--primary); color:var(--primary);">收起</button>
+                 </div>
+              </div>
+
+              <button onclick="togglePost(${post.id})" class="read-more" style="background:none; border:none; padding:0; cursor:pointer; font-family:inherit;">阅读全文 →</button>
             </article>
           </div>
         `).join("");
@@ -643,50 +620,71 @@
         els.nextPage.disabled = currentPage >= totalPages;
       }
 
-      async function loadPostDetail(postId) {
-        els.listView.classList.add("hidden");
-        els.detailView.classList.remove("hidden");
-        // Hide profile card in detail view
-        document.querySelector('.profile-card').classList.add('hidden');
-        // Expand main content to full width
-        document.querySelector('.container').style.gridTemplateColumns = '1fr';
+      async function togglePost(postId, toggleOff = true) {
+        const detailEl = document.getElementById(`post-detail-${postId}`);
+        const readMoreBtn = document.querySelector(`#post-card-${postId} .read-more`);
         
-        try {
-          const resp = await fetch(`/api/v1/posts/${postId}`);
-          const { data: post } = await resp.json();
-          
-          if (!post) {
-            els.detailTitle.textContent = "文章不存在";
-            return;
-          }
+        if (!detailEl) return;
 
-          els.detailTitle.textContent = post.title;
-          els.detailDate.textContent = formatDate(post.created_at);
-          els.detailContent.innerHTML = `
-            <div style="white-space: pre-wrap;">${post.content}</div>
-            ${renderImages(post.images)}
-          `;
-          
-          loadComments(postId);
-        } catch (err) {
-          els.detailTitle.textContent = "加载失败";
+        const isHidden = detailEl.classList.contains("hidden");
+        
+        if (!isHidden && toggleOff) {
+            // Collapse
+            detailEl.classList.add("hidden");
+            readMoreBtn.classList.remove("hidden");
+            history.pushState(null, "", "/");
+            return;
+        }
+
+        // Expand
+        // Close others to keep view clean.
+        document.querySelectorAll('.post-detail').forEach(el => {
+            if (el.id !== `post-detail-${postId}`) el.classList.add('hidden');
+        });
+        document.querySelectorAll('.read-more').forEach(el => el.classList.remove('hidden'));
+
+        detailEl.classList.remove("hidden");
+        readMoreBtn.classList.add("hidden");
+        
+        // Update URL
+        history.pushState(null, "", `/post/${postId}`);
+
+        // Load content if empty
+        const contentEl = document.getElementById(`post-content-${postId}`);
+        if (contentEl.innerHTML === "加载中..." || contentEl.innerHTML === "") {
+            try {
+                const resp = await fetch(`/api/v1/posts/${postId}`);
+                const { data: post } = await resp.json();
+                if (post) {
+                    contentEl.innerHTML = `
+                        <div style="white-space: pre-wrap;">${post.content}</div>
+                        ${renderImages(post.images)}
+                    `;
+                    loadInlineComments(postId);
+                } else {
+                    contentEl.textContent = "加载失败";
+                }
+            } catch (e) {
+                contentEl.textContent = "网络错误";
+            }
         }
       }
 
-      async function loadComments(postId) {
+      async function loadInlineComments(postId) {
+        const listEl = document.getElementById(`post-comments-${postId}`);
         try {
           const resp = await fetch(`/api/v1/comments/public?post_id=${postId}`);
           const { data } = await resp.json();
           
           if (!data || data.length === 0) {
-            els.commentList.innerHTML = '<div style="color:var(--muted); text-align:center; padding:20px;">暂无评论，快来抢沙发吧！</div>';
+            listEl.innerHTML = '<div style="color:var(--muted); font-size:14px;">暂无评论</div>';
             return;
           }
 
-          els.commentList.innerHTML = data.map(c => `
+          listEl.innerHTML = data.map(c => `
             <div class="comment-item">
-              <div class="meta" style="margin-bottom:4px;">${formatDate(c.created_at)}</div>
-              <div style="white-space: pre-wrap;">${c.content}</div>
+              <div class="meta" style="margin-bottom:4px; font-size:12px;">${formatDate(c.created_at)}</div>
+              <div style="white-space: pre-wrap; font-size:14px;">${c.content}</div>
             </div>
           `).join("");
         } catch (err) {
@@ -694,8 +692,14 @@
         }
       }
 
+      function openCommentModal(postId) {
+        currentCommentPostId = postId;
+        els.commentModal.classList.remove("hidden");
+        els.commentContent.focus();
+      }
+
       async function submitComment() {
-        const postId = getPostIdFromUrl();
+        if (!currentCommentPostId) return;
         const content = els.commentContent.value.trim();
         
         if (!content) return;
@@ -707,14 +711,17 @@
           const resp = await fetch("/api/v1/comments/public", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ post_id: Number(postId), content })
+            body: JSON.stringify({ post_id: Number(currentCommentPostId), content })
           });
           
           if (resp.ok) {
             els.commentContent.value = "";
             els.commentStatus.textContent = "评论成功！";
-            loadComments(postId);
-            setTimeout(() => els.commentStatus.textContent = "", 3000);
+            loadInlineComments(currentCommentPostId);
+            setTimeout(() => {
+                els.commentStatus.textContent = "";
+                els.commentModal.classList.add("hidden");
+            }, 1000);
           } else {
             els.commentStatus.textContent = "提交失败";
           }
@@ -760,25 +767,44 @@
       });
 
       els.submitCommentBtn.addEventListener("click", submitComment);
-      els.openCommentBtn.addEventListener("click", () => {
-        els.commentModal.classList.remove("hidden");
-        els.commentContent.focus();
-      });
       els.closeCommentBtn.addEventListener("click", () => {
         els.commentModal.classList.add("hidden");
       });
+
+      // SPA Navigation
+      async function handleRoute() {
+        // In the new design, we always show the list.
+        // If there is a post ID, we expand it.
+        // If we are already on the page, loadPosts will handle the expansion if data is ready,
+        // or togglePost will handle it if data is already there.
+        
+        // If postList is empty, we need to load posts first.
+        if (!els.postList.children.length) {
+            await loadPosts(currentPage);
+        } else {
+            const postId = getPostIdFromUrl();
+            if (postId) {
+                togglePost(postId, false);
+            } else {
+                // Collapse all
+                document.querySelectorAll('.post-detail').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('.read-more').forEach(el => el.classList.remove('hidden'));
+            }
+        }
+      }
+
+      function navigateTo(url) {
+        history.pushState(null, "", url);
+        handleRoute();
+      }
+
+      window.addEventListener("popstate", handleRoute);
 
       // Init
       async function init() {
         initTheme();
         await loadSettings();
-        
-        const postId = getPostIdFromUrl();
-        if (postId) {
-          loadPostDetail(postId);
-        } else {
-          loadPosts(currentPage);
-        }
+        handleRoute();
       }
 
       init();
