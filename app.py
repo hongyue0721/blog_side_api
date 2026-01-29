@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 import toml
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile, Query
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 
@@ -176,6 +177,8 @@ uploads_images_dir.mkdir(parents=True, exist_ok=True)
 uploads_music_dir.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="Blog Comment API Sample", version="0.2.0")
+
+app.mount("/web", StaticFiles(directory=web_root), name="web")
 
 
 def require_admin_password(x_admin_password: str | None) -> None:
