@@ -102,9 +102,7 @@
         font-size: 32px;
         font-weight: bold;
         margin: 0 0 16px 0;
-        background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #000000;
       }
       .intro-text {
         color: var(--muted);
@@ -112,6 +110,20 @@
         line-height: 1.8;
         white-space: pre-wrap;
         font-size: 16px;
+        min-height: 1.8em; /* Reserve space for typing effect */
+      }
+      .cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1.2em;
+        background-color: var(--text);
+        margin-left: 2px;
+        vertical-align: middle;
+        animation: blink 1s step-end infinite;
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
       }
       
       @media (min-width: 769px) {
@@ -628,6 +640,23 @@
       };
 
       // Utils
+      function typeWriter(element, text, speed = 100) {
+        element.innerHTML = '<span class="cursor"></span>';
+        const cursor = element.querySelector('.cursor');
+        let i = 0;
+        
+        function type() {
+          if (i < text.length) {
+            const char = text.charAt(i);
+            // Insert character before the cursor
+            cursor.insertAdjacentText('beforebegin', char);
+            i++;
+            setTimeout(type, speed);
+          }
+        }
+        type();
+      }
+
       function getPostIdFromUrl() {
         const match = window.location.pathname.match(/\/post\/(\d+)/);
         if (match) return match[1];
@@ -752,7 +781,7 @@
 
           // Update Intro View
           els.introName.textContent = name;
-          els.introText.textContent = intro;
+          typeWriter(els.introText, intro);
           if (data.avatar) {
             els.introAvatar.src = data.avatar;
             els.introAvatar.classList.remove("hidden");
