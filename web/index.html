@@ -298,8 +298,16 @@
           </div>
         </div>
         <div class="form-row">
-          <label>主题色</label>
+          <label>主题色 (Theme Color)</label>
           <input id="settingColor" type="color" value="#2563eb" style="height: 40px; padding: 2px;" />
+        </div>
+        <div class="form-row">
+          <label>节点/锚点颜色 (Node Color)</label>
+          <input id="settingNodeColor" type="color" value="#2563eb" style="height: 40px; padding: 2px;" />
+        </div>
+        <div class="form-row">
+          <label>卡片透明度 (Card Opacity: 0.0 - 1.0)</label>
+          <input id="settingCardOpacity" type="number" min="0" max="1" step="0.1" value="0.6" />
         </div>
         <div class="form-row">
           <label>
@@ -338,6 +346,8 @@
       const settingAvatar = document.getElementById("settingAvatar");
       const settingBg = document.getElementById("settingBg");
       const settingColor = document.getElementById("settingColor");
+      const settingNodeColor = document.getElementById("settingNodeColor");
+      const settingCardOpacity = document.getElementById("settingCardOpacity");
       const settingSnow = document.getElementById("settingSnow");
       const settingMusic = document.getElementById("settingMusic");
       const tabs = document.querySelectorAll(".tab");
@@ -780,6 +790,8 @@
           settingAvatar.value = data.avatar || "";
           settingBg.value = data.background_image || "";
           settingColor.value = data.theme_color || "#2563eb";
+          settingNodeColor.value = data.node_color || "#2563eb";
+          settingCardOpacity.value = data.card_opacity !== undefined ? data.card_opacity : 0.6;
           settingSnow.checked = !!data.enable_snow;
           settingMusic.value = data.music_url || "";
           setStatus("设置加载完成");
@@ -966,6 +978,8 @@
           avatar: settingAvatar.value.trim(),
           background_image: settingBg.value.trim(),
           theme_color: settingColor.value,
+          node_color: settingNodeColor.value,
+          card_opacity: parseFloat(settingCardOpacity.value),
           enable_snow: settingSnow.checked,
           music_url: settingMusic.value.trim(),
         };

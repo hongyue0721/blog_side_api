@@ -44,6 +44,8 @@ class SettingsPayload(BaseModel):
     theme_color: Optional[str] = None
     enable_snow: Optional[bool] = None
     music_url: Optional[str] = None
+    card_opacity: Optional[float] = None
+    node_color: Optional[str] = None
 
 
 def load_config() -> Dict[str, Any]:
@@ -328,6 +330,10 @@ def update_settings(payload: SettingsPayload, x_admin_password: str | None = Hea
         current["enable_snow"] = payload.enable_snow
     if payload.music_url is not None:
         current["music_url"] = payload.music_url
+    if payload.card_opacity is not None:
+        current["card_opacity"] = payload.card_opacity
+    if payload.node_color is not None:
+        current["node_color"] = payload.node_color
     write_json(settings_file, current)
     return {"code": 0, "message": "success", "data": current}
 

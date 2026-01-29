@@ -9,10 +9,13 @@
         font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
         color-scheme: light;
         --bg: #f7f7fb;
-        --card: rgba(255, 255, 255, 0.7);
+        --card-rgb: 255, 255, 255;
+        --card-opacity: 0.6;
+        --card: rgba(var(--card-rgb), var(--card-opacity));
         --text: #1f2328;
         --muted: #6b7280;
-        --primary: #2563eb;
+        --node-color: #2563eb;
+        --primary: var(--node-color);
         --border: rgba(229, 231, 235, 0.5);
         --backdrop-blur: 10px;
         --shadow: rgba(0, 0, 0, 0.1);
@@ -20,7 +23,7 @@
       html.dark {
         color-scheme: dark;
         --bg: #111827;
-        --card: rgba(31, 41, 55, 0.7);
+        --card-rgb: 31, 41, 55;
         --text: #f3f4f6;
         --muted: #9ca3af;
         --border: rgba(75, 85, 99, 0.5);
@@ -233,32 +236,77 @@
         -webkit-backdrop-filter: blur(4px);
       }
       
-      /* Controls (Theme & Snow) */
-      .controls {
+      /* Settings Menu */
+      .settings-container {
         position: fixed;
         top: 24px;
         right: 24px;
+        z-index: 1000;
         display: flex;
-        gap: 12px;
-        z-index: 100;
+        flex-direction: column;
+        align-items: flex-end;
       }
-      .control-btn {
+      .settings-btn {
         width: 40px;
         height: 40px;
         border-radius: 50%;
         background: var(--card);
         border: 1px solid var(--border);
+        cursor: pointer;
+        font-size: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
         backdrop-filter: blur(var(--backdrop-blur));
         box-shadow: 0 2px 4px var(--shadow);
-        font-size: 20px;
-        padding: 0; /* Reset padding */
+        transition: transform 0.3s;
+        padding: 0;
       }
-      .control-btn:hover {
-        transform: scale(1.05);
+      .settings-btn:hover {
+        transform: rotate(90deg);
+      }
+      .settings-menu {
+        margin-top: 12px;
+        background: var(--card);
+        backdrop-filter: blur(var(--backdrop-blur));
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 180px;
+        box-shadow: 0 4px 12px var(--shadow);
+        transform-origin: top right;
+        transition: opacity 0.2s, transform 0.2s;
+      }
+      .settings-menu.hidden {
+        display: none;
+      }
+      .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font-size: 14px;
+        text-align: left;
+        width: 100%;
+        font-family: inherit;
+      }
+      .menu-item:hover {
+        background: rgba(0,0,0,0.05);
+      }
+      html.dark .menu-item:hover {
+        background: rgba(255,255,255,0.1);
+      }
+      .menu-icon {
+        width: 20px;
+        text-align: center;
       }
       .modal-content {
         width: 90%;
@@ -351,9 +399,19 @@
   </head>
   <body>
     <div id="heroBg" class="hero-bg"></div>
-    <div class="controls">
-      <button id="snowToggle" class="control-btn" title="切换雪花特效">❄️</button>
-      <button id="themeToggle" class="control-btn" title="切换深色模式">🌓</button>
+    <div class="settings-container">
+      <button id="settingsToggle" class="settings-btn" title="设置">⚙️</button>
+      <div id="settingsMenu" class="settings-menu hidden">
+        <button id="themeToggle" class="menu-item">
+          <span class="menu-icon">🌓</span> 切换主题
+        </button>
+        <button id="snowToggle" class="menu-item">
+          <span class="menu-icon">❄️</span> 雪花特效
+        </button>
+        <div id="musicControlContainer" class="hidden">
+           <!-- Music Player will mount here -->
+        </div>
+      </div>
     </div>
     
     <div class="container">
@@ -447,6 +505,21 @@
         });
       }
 
+      // Settings Toggle
+      const settingsToggle = document.getElementById("settingsToggle");
+      const settingsMenu = document.getElementById("settingsMenu");
+      
+      settingsToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        settingsMenu.classList.toggle("hidden");
+      });
+
+      document.addEventListener("click", (e) => {
+        if (!settingsMenu.contains(e.target) && e.target !== settingsToggle) {
+          settingsMenu.classList.add("hidden");
+        }
+      });
+
       // Theme Management
       const themeToggle = document.getElementById("themeToggle");
       
@@ -481,10 +554,10 @@
       function applySnowState() {
         if (isSnowEnabled) {
           window.snowEffect && window.snowEffect.start();
-          snowToggle.style.opacity = "1";
+          snowToggle.querySelector('.menu-icon').style.opacity = "1";
         } else {
           window.snowEffect && window.snowEffect.stop();
-          snowToggle.style.opacity = "0.5";
+          snowToggle.querySelector('.menu-icon').style.opacity = "0.3";
         }
       }
 
@@ -526,18 +599,18 @@
 
           if (data.background_image) {
             document.getElementById("heroBg").style.backgroundImage = `url('${data.background_image}')`;
-            // Try to extract color from background image
-            try {
-              const color = await extractDominantColor(data.background_image);
-              document.documentElement.style.setProperty('--primary', color);
-            } catch (e) {
-              console.log("Could not extract color from image, using default or config");
-              if (data.theme_color) {
-                document.documentElement.style.setProperty('--primary', data.theme_color);
-              }
-            }
+          }
+          
+          // Apply Configured Colors/Opacity
+          if (data.card_opacity !== undefined && data.card_opacity !== null) {
+             document.documentElement.style.setProperty('--card-opacity', data.card_opacity);
+          }
+          
+          if (data.node_color) {
+             document.documentElement.style.setProperty('--node-color', data.node_color);
           } else if (data.theme_color) {
-            document.documentElement.style.setProperty('--primary', data.theme_color);
+             // Fallback to theme_color if node_color not set, or just use it as primary
+             document.documentElement.style.setProperty('--node-color', data.theme_color);
           }
 
           // Initialize Snow Effect
@@ -545,7 +618,9 @@
 
           // Initialize Music Player
           if (data.music_url && window.musicPlayer) {
-            window.musicPlayer.init(data.music_url);
+            const musicContainer = document.getElementById("musicControlContainer");
+            musicContainer.classList.remove("hidden");
+            window.musicPlayer.init(data.music_url, musicContainer);
           }
 
         } catch (err) {
