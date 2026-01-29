@@ -10,7 +10,7 @@
         color-scheme: light;
         --bg: #f7f7fb;
         --card-rgb: 255, 255, 255;
-        --card-opacity: 0.6;
+        --card-opacity: 0.4;
         --card: rgba(var(--card-rgb), var(--card-opacity));
         --text: #1f2328;
         --muted: #6b7280;
@@ -60,21 +60,102 @@
         max-width: 1200px;
         margin: 0 auto;
         padding: 24px;
-        padding-top: 25vh; /* Push content down to reveal hero */
+        padding-top: 120px; /* Adjusted for blog view */
         display: grid;
         grid-template-columns: 300px 1fr;
         gap: 24px;
         align-items: start;
+        position: relative;
+        min-height: 100vh;
+        box-sizing: border-box;
       }
+      
+      /* Intro View */
+      .intro-container {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        padding: 20px;
+        animation: fadeIn 0.5s ease-out;
+      }
+      .intro-card {
+        text-align: center;
+        max-width: 400px;
+        width: 100%;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .intro-name {
+        font-size: 32px;
+        font-weight: bold;
+        margin: 0 0 16px 0;
+      }
+      .intro-text {
+        color: var(--muted);
+        margin-bottom: 32px;
+        line-height: 1.6;
+        white-space: pre-wrap;
+      }
+      .enter-btn {
+        font-size: 18px;
+        padding: 12px 32px;
+        border-radius: 999px;
+        background: var(--primary);
+        color: white;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s, opacity 0.2s;
+        text-decoration: none;
+      }
+      .enter-btn:hover {
+        transform: scale(1.05);
+        opacity: 0.9;
+      }
+
+      /* Back Button */
+      .back-home-btn {
+        position: absolute;
+        top: 24px;
+        left: 24px;
+        background: var(--card);
+        backdrop-filter: blur(var(--backdrop-blur));
+        border: 1px solid var(--border);
+        padding: 8px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        color: var(--text);
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s;
+        z-index: 20;
+        box-shadow: 0 2px 4px var(--shadow);
+      }
+      .back-home-btn:hover {
+        transform: translateX(-2px);
+        background: rgba(255, 255, 255, 0.8);
+      }
+      html.dark .back-home-btn:hover {
+        background: rgba(31, 41, 55, 0.8);
+      }
+
       @media (max-width: 768px) {
         .container {
           grid-template-columns: 1fr;
-          padding-top: 20vh;
+          padding-top: 80px;
         }
         .profile-card {
-          position: relative; /* Unstick on mobile */
-          top: 0;
-          transition: opacity 0.2s;
+          display: none; /* Hide sidebar on mobile */
+        }
+        .back-home-btn {
+            top: 16px;
+            left: 16px;
         }
       }
       .glass-panel {
@@ -414,7 +495,20 @@
       </div>
     </div>
     
-    <div class="container">
+    <!-- Intro View -->
+    <div id="introView" class="intro-container hidden">
+        <div class="glass-panel intro-card">
+            <img id="introAvatar" src="" alt="Avatar" class="avatar hidden" />
+            <h1 id="introName" class="intro-name">Loading...</h1>
+            <div id="introText" class="intro-text"></div>
+            <button id="enterBlogBtn" class="enter-btn">Enter Blog</button>
+        </div>
+    </div>
+
+    <!-- Blog View -->
+    <div id="blogView" class="container hidden">
+      <button id="backHomeBtn" class="back-home-btn">← Back to Home</button>
+      
       <!-- Left Sidebar: Profile -->
       <aside class="glass-panel profile-card">
         <img id="profileAvatar" src="" alt="Avatar" class="avatar hidden" />
@@ -462,6 +556,13 @@
         avatar: document.getElementById("profileAvatar"),
         name: document.getElementById("profileName"),
         intro: document.getElementById("profileIntro"),
+        introView: document.getElementById("introView"),
+        introAvatar: document.getElementById("introAvatar"),
+        introName: document.getElementById("introName"),
+        introText: document.getElementById("introText"),
+        enterBlogBtn: document.getElementById("enterBlogBtn"),
+        blogView: document.getElementById("blogView"),
+        backHomeBtn: document.getElementById("backHomeBtn"),
         postList: document.getElementById("postList"),
         pagination: document.getElementById("pagination"),
         prevPage: document.getElementById("prevPage"),
@@ -586,15 +687,23 @@
           const resp = await fetch("/api/v1/settings");
           const { data } = await resp.json();
           
-          if (data.name) els.name.textContent = data.name;
-          else els.name.textContent = "未命名博客";
-
-          if (data.intro) els.intro.textContent = data.intro;
-          else els.intro.textContent = "暂无简介";
-
+          const name = data.name || "未命名博客";
+          const intro = data.intro || "暂无简介";
+          
+          // Update Profile Sidebar
+          els.name.textContent = name;
+          els.intro.textContent = intro;
           if (data.avatar) {
             els.avatar.src = data.avatar;
             els.avatar.classList.remove("hidden");
+          }
+
+          // Update Intro View
+          els.introName.textContent = name;
+          els.introText.textContent = intro;
+          if (data.avatar) {
+            els.introAvatar.src = data.avatar;
+            els.introAvatar.classList.remove("hidden");
           }
 
           if (data.background_image) {
@@ -818,22 +927,6 @@
         }
       }
 
-      // Scroll Effect for Mobile Profile
-      window.addEventListener("scroll", () => {
-        if (window.innerWidth <= 768) {
-          const scrollY = window.scrollY;
-          const profileCard = document.querySelector('.profile-card');
-          // Fade out profile card as we scroll down
-          // Start fading at 0, fully transparent by 300px
-          const opacity = Math.max(0, 1 - scrollY / 300);
-          profileCard.style.opacity = opacity;
-          
-          // If fully transparent, hide it to prevent clicks?
-          // Or just let it scroll away naturally since it is position: relative now.
-          // The user asked for "fade out", visual opacity is enough.
-        }
-      });
-
       // Event Listeners
       els.prevPage.addEventListener("click", () => {
         if (currentPage > 1) {
@@ -856,23 +949,35 @@
       els.closeCommentBtn.addEventListener("click", () => {
         els.commentModal.classList.add("hidden");
       });
+      
+      els.enterBlogBtn.addEventListener("click", () => navigateTo("/blog"));
+      els.backHomeBtn.addEventListener("click", () => navigateTo("/"));
 
       // SPA Navigation
       async function handleRoute() {
-        // In the new design, we always show the list.
-        // If there is a post ID, we expand it.
-        // If we are already on the page, loadPosts will handle the expansion if data is ready,
-        // or togglePost will handle it if data is already there.
-        
-        // If postList is empty, we need to load posts first.
-        if (!els.postList.children.length) {
-            await loadPosts(currentPage);
+        const path = window.location.pathname;
+        const postId = getPostIdFromUrl();
+
+        if (path === "/" && !postId) {
+            // Show Intro
+            els.introView.classList.remove("hidden");
+            els.blogView.classList.add("hidden");
+            document.title = els.introName.textContent || "Welcome";
         } else {
-            const postId = getPostIdFromUrl();
+            // Show Blog
+            els.introView.classList.add("hidden");
+            els.blogView.classList.remove("hidden");
+            document.title = "Blog - " + (els.name.textContent || "");
+            
+            // Load posts if needed
+            if (!els.postList.children.length) {
+                await loadPosts(currentPage);
+            }
+            
             if (postId) {
                 togglePost(postId, false);
             } else {
-                // Collapse all
+                // Ensure we are in list view state
                 document.querySelectorAll('.post-detail').forEach(el => el.classList.add('hidden'));
                 document.querySelectorAll('.read-more').forEach(el => el.classList.remove('hidden'));
                 document.querySelectorAll('.post-summary').forEach(el => el.classList.remove('hidden'));

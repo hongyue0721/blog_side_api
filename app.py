@@ -199,6 +199,11 @@ def serve_public_list():
     return FileResponse(web_root / "public.html")
 
 
+@app.get("/blog")
+def serve_blog_page():
+    return FileResponse(web_root / "public.html")
+
+
 @app.get("/post/{post_id}")
 def serve_public_detail(post_id: int):
     return FileResponse(web_root / "public.html")
