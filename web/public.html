@@ -68,6 +68,7 @@
         position: relative;
         min-height: 100vh;
         box-sizing: border-box;
+        transition: opacity 0.4s ease, transform 0.4s ease;
       }
       
       /* Intro View */
@@ -79,7 +80,7 @@
         justify-content: center;
         z-index: 10;
         padding: 20px;
-        animation: fadeIn 0.5s ease-out;
+        transition: opacity 0.4s ease, transform 0.4s ease;
       }
       .intro-card {
         text-align: center;
@@ -89,17 +90,64 @@
         display: flex;
         flex-direction: column;
         align-items: center;
+        gap: 24px;
+      }
+      .intro-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
       }
       .intro-name {
         font-size: 32px;
         font-weight: bold;
         margin: 0 0 16px 0;
+        background: linear-gradient(135deg, var(--text) 0%, var(--primary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
       }
       .intro-text {
         color: var(--muted);
         margin-bottom: 32px;
-        line-height: 1.6;
+        line-height: 1.8;
         white-space: pre-wrap;
+        font-size: 16px;
+      }
+      
+      @media (min-width: 769px) {
+        .intro-card {
+            max-width: 1100px;
+            flex-direction: row;
+            text-align: left;
+            padding: 80px;
+            gap: 80px;
+            align-items: center;
+        }
+        .intro-card .avatar {
+            width: 320px;
+            height: 320px;
+            border-width: 8px;
+            flex-shrink: 0;
+            box-shadow: 0 20px 40px -10px var(--shadow);
+        }
+        .intro-content {
+            align-items: flex-start;
+            flex: 1;
+        }
+        .intro-name {
+            font-size: 72px;
+            margin-bottom: 24px;
+            letter-spacing: -2px;
+        }
+        .intro-text {
+            font-size: 20px;
+            margin-bottom: 48px;
+            max-width: 600px;
+        }
+        .enter-btn {
+            font-size: 22px;
+            padding: 18px 56px;
+        }
       }
       .enter-btn {
         font-size: 18px;
@@ -159,18 +207,20 @@
         }
       }
       .glass-panel {
-        background: rgba(255, 255, 255, 0.6);
-        backdrop-filter: blur(var(--backdrop-blur));
-        -webkit-backdrop-filter: blur(var(--backdrop-blur));
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        /* Acrylic Effect */
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.4);
         border-radius: 12px;
         padding: 20px;
-        box-shadow: 0 4px 6px -1px var(--shadow), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
         transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s;
       }
       html.dark .glass-panel {
-        background: rgba(31, 41, 55, 0.6);
+        background: rgba(31, 41, 55, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
       }
       .glass-panel:hover {
         transform: scale(1.02);
@@ -499,9 +549,11 @@
     <div id="introView" class="intro-container hidden">
         <div class="glass-panel intro-card">
             <img id="introAvatar" src="" alt="Avatar" class="avatar hidden" />
-            <h1 id="introName" class="intro-name">Loading...</h1>
-            <div id="introText" class="intro-text"></div>
-            <button id="enterBlogBtn" class="enter-btn">Enter Blog</button>
+            <div class="intro-content">
+                <h1 id="introName" class="intro-name">Loading...</h1>
+                <div id="introText" class="intro-text"></div>
+                <button id="enterBlogBtn" class="enter-btn">进入博客</button>
+            </div>
         </div>
     </div>
 
@@ -954,19 +1006,42 @@
       els.backHomeBtn.addEventListener("click", () => navigateTo("/"));
 
       // SPA Navigation
+      async function switchView(showEl, hideEl) {
+        if (!showEl.classList.contains("hidden")) return;
+
+        // Fade out
+        if (!hideEl.classList.contains("hidden")) {
+            hideEl.style.opacity = "0";
+            hideEl.style.transform = "scale(0.98)";
+            await new Promise(r => setTimeout(r, 400));
+            hideEl.classList.add("hidden");
+        }
+
+        // Prepare show
+        showEl.classList.remove("hidden");
+        showEl.style.opacity = "0";
+        showEl.style.transform = "scale(1.02)";
+        
+        // Force reflow
+        void showEl.offsetWidth;
+
+        // Fade in
+        showEl.style.opacity = "1";
+        showEl.style.transform = "scale(1)";
+      }
+
       async function handleRoute() {
         const path = window.location.pathname;
         const postId = getPostIdFromUrl();
+        const isIntro = (path === "/" && !postId);
 
-        if (path === "/" && !postId) {
+        if (isIntro) {
             // Show Intro
-            els.introView.classList.remove("hidden");
-            els.blogView.classList.add("hidden");
+            await switchView(els.introView, els.blogView);
             document.title = els.introName.textContent || "Welcome";
         } else {
             // Show Blog
-            els.introView.classList.add("hidden");
-            els.blogView.classList.remove("hidden");
+            await switchView(els.blogView, els.introView);
             document.title = "Blog - " + (els.name.textContent || "");
             
             // Load posts if needed
