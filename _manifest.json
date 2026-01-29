@@ -1,0 +1,24 @@
+{
+  "manifest_version": 1,
+  "name": "QQ 发布博客",
+  "version": "1.1.0",
+  "description": "通过 QQ 指令发布博客（含定时发布）",
+  "author": {
+    "name": "YourName"
+  },
+  "license": "MIT",
+  "host_application": {
+    "min_version": "0.10.0",
+    "max_version": "0.12.2"
+  },
+  "homepage_url": "https://github.com/yourname/bot_side_plugin",
+  "repository_url": "https://github.com/yourname/bot_side_plugin",
+  "keywords": ["blog", "publish", "schedule", "mai"],
+  "categories": ["External Integration", "Content Generation"],
+  "default_locale": "zh-CN",
+  "plugin_info": {
+    "is_built_in": false,
+    "plugin_type": "general",
+    "components": []
+  }
+}
