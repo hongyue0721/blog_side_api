@@ -8,20 +8,72 @@
       :root {
         color-scheme: light;
         font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
-        --bg: #f7f7fb;
-        --card: #ffffff;
-        --text: #1f2328;
-        --muted: #6b7280;
-        --primary: #2563eb;
-        --border: #e5e7eb;
+        --bg: #edf3f5;
+        --card: rgba(255, 255, 255, 0.6);
+        --card-strong: rgba(255, 255, 255, 0.86);
+        --text: #112533;
+        --muted: #5f7280;
+        --primary: #157f95;
+        --primary-strong: #0f687a;
+        --danger: #c03946;
+        --border: rgba(153, 177, 191, 0.35);
+        --shadow: 0 16px 40px rgba(14, 35, 44, 0.12);
       }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
-        background: var(--bg);
+        background: radial-gradient(circle at 16% 14%, #d8eef5 0%, transparent 34%),
+                    radial-gradient(circle at 82% 0%, #f8e7cf 0%, transparent 30%),
+                    linear-gradient(145deg, #e9f2f6 0%, #f4f7f8 45%, #e8edf0 100%);
         color: var(--text);
+        min-height: 100vh;
       }
+
+      .page-bg,
+      .mesh {
+        position: fixed;
+        pointer-events: none;
+        z-index: -2;
+      }
+
+      .page-bg {
+        inset: 0;
+        background-image: linear-gradient(rgba(38, 72, 84, 0.04) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(38, 72, 84, 0.04) 1px, transparent 1px);
+        background-size: 34px 34px;
+      }
+
+      .mesh {
+        z-index: -1;
+        width: 460px;
+        height: 460px;
+        border-radius: 50%;
+        filter: blur(38px);
+        opacity: 0.35;
+      }
+
+      .mesh-a {
+        top: -140px;
+        right: -120px;
+        background: #9fd8e6;
+      }
+
+      .mesh-b {
+        bottom: -180px;
+        left: -90px;
+        background: #f2c88f;
+      }
+
       header {
-        background: var(--card);
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        backdrop-filter: blur(14px);
+        background: rgba(255, 255, 255, 0.72);
         border-bottom: 1px solid var(--border);
         padding: 16px 24px;
         display: flex;
@@ -30,145 +82,228 @@
         gap: 16px;
         flex-wrap: wrap;
       }
+
+      .heading {
+        display: grid;
+        gap: 2px;
+      }
+
       h1 {
         margin: 0;
-        font-size: 20px;
+        font-size: 22px;
+        letter-spacing: 0.2px;
       }
+
+      .sub {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
       main {
         padding: 24px;
         display: grid;
-        gap: 16px;
+        gap: 18px;
       }
+
       .panel {
         background: var(--card);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 16px;
         padding: 16px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(10px) saturate(160%);
       }
-      .toolbar {
+
+      .toolbar,
+      .tabs {
         display: flex;
         gap: 8px;
         align-items: center;
         flex-wrap: wrap;
       }
-      .tabs {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
+
       .tab {
-        padding: 8px 12px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background: #f3f4f6;
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(21, 127, 149, 0.24);
+        background: rgba(255, 255, 255, 0.7);
+        color: #2a5361;
         cursor: pointer;
+        transition: 180ms ease;
       }
+
+      .tab:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.94);
+      }
+
       .tab.active {
-        background: var(--primary);
+        background: linear-gradient(135deg, var(--primary) 0%, #1d9ab3 100%);
         color: #fff;
-        border-color: var(--primary);
+        border-color: transparent;
       }
-      input[type="text"] {
-        padding: 8px 10px;
+
+      input[type="text"],
+      input[type="password"],
+      input[type="number"],
+      input[type="color"],
+      input[type="file"],
+      textarea {
+        width: 100%;
+        min-height: 40px;
+        padding: 9px 11px;
         border: 1px solid var(--border);
-        border-radius: 6px;
+        border-radius: 10px;
+        background: var(--card-strong);
+        color: var(--text);
+        font-family: inherit;
+      }
+
+      input[type="text"],
+      input[type="password"] {
         min-width: 240px;
       }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
       button {
-        padding: 8px 12px;
-        border: none;
-        border-radius: 6px;
-        background: var(--primary);
-        color: white;
+        padding: 9px 14px;
+        border: 0;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--primary) 0%, #1a8da4 100%);
+        color: #fff;
         cursor: pointer;
+        font-weight: 600;
+        transition: 160ms ease;
       }
+
+      button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+      }
+
       button.secondary {
-        background: #6b7280;
+        background: linear-gradient(135deg, #7d8f9a 0%, #687b87 100%);
       }
+
       button.danger {
-        background: #dc2626;
+        background: linear-gradient(135deg, var(--danger) 0%, #a72f3a 100%);
       }
+
       table {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         margin-top: 12px;
         font-size: 14px;
+        overflow: hidden;
+        border-radius: 12px;
+        border: 1px solid var(--border);
       }
+
       th,
       td {
         border-bottom: 1px solid var(--border);
         text-align: left;
-        padding: 8px;
+        padding: 10px;
         vertical-align: top;
+        background: rgba(255, 255, 255, 0.62);
       }
+
       th {
-        background: #f3f4f6;
+        background: rgba(227, 244, 248, 0.8);
+        color: #255262;
       }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+
       .muted {
         color: var(--muted);
       }
+
       .empty {
         padding: 12px;
         color: var(--muted);
       }
-      .badge {
-        display: inline-block;
-        padding: 2px 8px;
-        font-size: 12px;
-        border-radius: 999px;
-        background: #eef2ff;
-        color: #3730a3;
-      }
+
       .hidden {
         display: none;
       }
+
       .meta {
         color: var(--muted);
         font-size: 13px;
         margin-bottom: 8px;
       }
+
       .image-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
         gap: 12px;
         margin-top: 12px;
       }
+
       .image-grid img {
         width: 100%;
-        border-radius: 8px;
+        border-radius: 10px;
         border: 1px solid var(--border);
       }
+
       .editor {
         margin-top: 16px;
         border-top: 1px dashed var(--border);
         padding-top: 16px;
       }
+
       .form-row {
         display: grid;
         gap: 8px;
         margin-bottom: 12px;
       }
+
       .form-row label {
         font-size: 14px;
-        color: var(--muted);
+        color: #446473;
         display: flex;
         align-items: center;
         gap: 8px;
       }
-      textarea {
-        width: 100%;
-        min-height: 120px;
-        padding: 8px 10px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        font-family: inherit;
-        resize: vertical;
+
+      @media (max-width: 768px) {
+        main {
+          padding: 14px;
+        }
+
+        header {
+          padding: 14px;
+        }
+
+        .tabs {
+          width: 100%;
+        }
+
+        .tab {
+          flex: 1;
+          text-align: center;
+        }
       }
     </style>
   </head>
   <body>
+    <div class="page-bg"></div>
+    <div class="mesh mesh-a"></div>
+    <div class="mesh mesh-b"></div>
     <header>
-      <h1>博客管理面板</h1>
+      <div class="heading">
+        <h1>博客管理面板</h1>
+        <p class="sub">与公开页统一的玻璃质感风格</p>
+      </div>
       <div class="tabs">
         <button class="tab active" data-tab="posts">博客管理</button>
         <button class="tab" data-tab="comments">评论管理</button>
